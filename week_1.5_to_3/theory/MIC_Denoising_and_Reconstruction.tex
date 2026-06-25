@@ -1,0 +1,803 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Weeks 1.5 to 3
+%  Image Denoising  +  Image Reconstruction (inverse problems, CT, MRI)
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice, so the
+%  table of contents resolves) or upload to Overleaf and hit Recompile.
+%      pdflatex MIC_Denoising_and_Reconstruction.tex
+%      pdflatex MIC_Denoising_and_Reconstruction.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 decks (ImageModeling,
+%  ImageDenoising, ImageReconstruction, XrayCT, MRI), with attribution,
+%  for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+% ---- light styling so the document does not feel like a wall of text ----
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\sffamily}{\thesubsubsection}{0.4em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+% ---- handy macros ----
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\xhat}{\hat{x}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\inner}[2]{\langle #1,\, #2 \rangle}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\title{\textbf{Image Denoising and Image Reconstruction}\\[2pt]
+\large A working handbook for inverse problems, with CT and MRI physics\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Weeks 1.5 to 3}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+This chapter is the main theory reading for this block. It is long on purpose:
+you should be able to learn the whole topic from it without chasing ten
+browser tabs. Read it once, slowly, start to finish. Keep the slide decks open
+next to you --- wherever you see a tag like \deck{ImageDenoising, slide 14},
+that is the exact slide the paragraph is explaining, so you can look at the
+picture while you read the words. Do the three notebooks in \texttt{../notebooks/}
+as you go; they turn every idea here into a few lines of code you can run.
+
+One promise: nothing here is hand-waved past the point of being useful. Where a
+result needs a derivation, you get the derivation. Where intuition is enough,
+you get the intuition and a pointer to the depth.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{The one idea behind the whole block}
+% =====================================================================
+
+Everything in these one and a half weeks is a single sentence wearing
+different costumes:
+
+\begin{keybox}[The recurring object]
+We never observe the thing we want. We observe a \emph{measurement} $y$ that is
+some known transformation of the true image $x$, corrupted by noise. We recover
+$x$ by asking: \emph{which $x$ best explains the data $y$, while also looking
+like a plausible image?} In symbols,
+\[
+\xhat \;=\; \argmax_{x}\; \underbrace{p(y \mid x)}_{\text{likelihood: fits the data}}
+\;\cdot\; \underbrace{p(x)}_{\text{prior: looks like an image}} .
+\]
+\end{keybox}
+
+That is Bayes' theorem, and it is the spine of denoising, of CT reconstruction,
+and of MRI reconstruction. The only thing that changes between those three is
+the transformation that connects $x$ to $y$:
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Problem & True image $x$ & Measurement $y$ & Forward map \\
+\midrule
+Denoising      & clean image            & noisy image          & identity ($y = x + n$) \\
+CT             & attenuation map        & projections (sinogram) & Radon transform \\
+MRI            & magnetisation image    & $k$-space samples    & (under-sampled) Fourier \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So denoising is just the simplest inverse problem --- the one where the forward
+map is ``do nothing''. Master it first, and CT and MRI become ``the same thing,
+but with a more interesting map in the middle''. That is why we spend the first
+half of this chapter on denoising and only then turn to reconstruction.
+
+% =====================================================================
+\part*{Part I -- Image Denoising}
+\addcontentsline{toc}{section}{PART I -- Image Denoising}
+% =====================================================================
+
+% ---------------------------------------------------------------------
+\section{What denoising is, and what noise looks like}
+% ---------------------------------------------------------------------
+
+Real scans are noisy. An MRI brain slice has a faint grainy texture; a low-dose
+CT chest scan is speckled with mottle; a fetal ultrasound looks like it was
+shot through frosted glass \deck{ImageDenoising, slides 3--5}. In every case the
+scanner handed us $y$, and somewhere underneath is the clean $x$ we actually
+want to look at or measure.
+
+Recall from Week~1 that an image is just a long vector of numbers --- one
+intensity per pixel (2D) or voxel (3D). Denoising treats each pixel's value as
+a \textbf{random variable}: the scanner did not give us a fixed number, it gave
+us a sample from a distribution centred (roughly) on the true intensity. Our
+job is to undo the randomness.
+
+A useful single number for ``how clean'' a measurement is, is the
+\textbf{signal-to-noise ratio} \deck{ImageDenoising, slide 9}:
+\[
+\mathrm{SNR}(X) \;=\; \frac{\E[X]}{\mathrm{SD}(X)} ,
+\]
+the mean of the random variable divided by its standard deviation. Big SNR
+means the signal towers over the wobble.
+
+\begin{notebox}[i.i.d.\ versus correlated noise]
+The simplest noise is \emph{independent and identically distributed} (i.i.d.):
+each pixel is perturbed on its own, with the same distribution, independent of
+its neighbours \deck{ImageDenoising, slide 6}. If you take an i.i.d.\ noise
+image and blur it with a low-pass filter, neighbouring pixels become linked and
+you get \emph{correlated} noise \deck{ImageDenoising, slides 7--8}. Most of the
+classical theory assumes i.i.d.\ noise; real scanners sometimes do not oblige,
+which is part of why denoising stays hard.
+\end{notebox}
+
+% ---------------------------------------------------------------------
+\section{The four noise models you must know}
+% ---------------------------------------------------------------------
+
+Different physics produces different noise. Picking the right model is half the
+battle, because the model \emph{is} the likelihood $p(y\mid x)$ in Bayes' rule.
+
+\subsection{Gaussian -- the default}
+
+The Gaussian (normal) distribution is everywhere \deck{ImageDenoising, slide 11},
+for three honest reasons:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Central limit theorem.} Add up many small independent effects
+  and the sum looks Gaussian, almost regardless of what the small effects were.
+  \item \textbf{Thermal (Johnson) noise} in the scanner's electronics is
+  Gaussian; it is unavoidable above absolute zero.
+  \item \textbf{Brownian motion / random walks} are Gaussian in the limit.
+\end{enumerate}
+Its density is
+\[
+p(x) \;=\; \frac{1}{\sqrt{2\pi}\,\sigma}\,
+           \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right),
+\qquad \mathrm{SNR} = \mu/\sigma .
+\]
+For an additive Gaussian noise model we write $y_i = x_i + n_i$ with
+$n_i \sim \mathcal{N}(0,\sigma^2)$ independently per pixel. This is the model
+that makes the negative log-likelihood a clean squared error,
+$-\log p(y\mid x) = \tfrac{1}{2\sigma^2}\norm{y-x}_2^2 + \text{const}$, which is
+why $\ell^2$ data terms are everywhere.
+
+\subsection{Poisson -- counting photons}
+
+Whenever the measurement is made by \emph{counting photons} hitting a detector
+--- photography, light microscopy, infrared, X-ray, CT --- the right model is
+Poisson \deck{ImageDenoising, slide 14}. If on average $\lambda$ photons arrive
+in the measurement window, the probability of counting exactly $k$ is
+\[
+\Pr(X=k) \;=\; \frac{\lambda^{k} e^{-\lambda}}{k!},
+\qquad \E[X] = \mathrm{Var}(X) = \lambda,
+\qquad \mathrm{SNR} = \frac{\lambda}{\sqrt{\lambda}} = \sqrt{\lambda}.
+\]
+Two consequences matter enormously in practice. First, the noise is
+\emph{signal-dependent}: bright regions (large $\lambda$) are noisier in
+absolute terms but cleaner in relative terms (SNR grows like $\sqrt\lambda$).
+This is the entire argument for higher X-ray dose giving cleaner images --- and
+the entire ethical problem, because dose is radiation. Second, for large
+$\lambda$ the Poisson PMF starts to look like a Gaussian bell
+\deck{ImageDenoising, slide 16}, which is why people often get away with a
+Gaussian approximation in bright images.
+
+\subsection{Compound Poisson -- real CT}
+
+Practical CT uses a \emph{polychromatic} (broad-spectrum) X-ray beam, so the
+count at a detector is a sum of $N$ contributions where $N$ itself is Poisson:
+a \textbf{compound Poisson} variable \deck{ImageDenoising, slide 17}. It too can
+be approximated by a Gaussian for many purposes, but knowing the real model
+matters when you push to low dose.
+
+\subsection{Rician -- magnitude MRI}
+
+MRI is the subtle one. The scanner measures a \emph{complex} signal --- a
+two-vector $[a,b]$ at each voxel (real and imaginary channels). Each channel
+carries i.i.d.\ zero-mean Gaussian noise. But the image we look at is the
+\emph{magnitude} $R=\sqrt{a^2+b^2}$, and the magnitude of a Gaussian two-vector
+is \textbf{Rician} distributed \deck{ImageDenoising, slide 18}:
+\[
+p(x \mid \nu,\sigma) \;=\;
+   \frac{x}{\sigma^2}\,
+   \exp\!\left(-\frac{x^2+\nu^2}{2\sigma^2}\right)
+   I_0\!\left(\frac{\nu x}{\sigma^2}\right), \qquad x \ge 0,
+\]
+where $\nu$ is the true (noise-free) magnitude, $\sigma$ is the per-channel
+Gaussian standard deviation, and $I_0$ is the modified Bessel function of the
+first kind, order $0$. Two facts to carry with you:
+\begin{itemize}[nosep,leftmargin=*]
+  \item $\nu$ is \emph{not} $\E[X]$ and $\sigma$ is \emph{not} $\mathrm{SD}(X)$
+  --- the magnitude operation shifts and skews everything, which is exactly why
+  noisy MRI never goes fully black even in air.
+  \item When the true signal is zero ($\nu=0$), the Rician collapses to the
+  \textbf{Rayleigh} distribution \deck{ImageDenoising, slide 20}. That is the
+  noise floor you see in the background of an MR image.
+\end{itemize}
+
+\begin{notebox}[Where the Rician comes from (and a reading note)]
+The derivation \deck{ImageDenoising, slides 21--22} writes the cumulative
+probability $\Pr(R\le x)=\Pr(z_1^2+z_2^2\le x^2)$ as a 2D Gaussian integral
+over the disc of radius $x$, switches to polar coordinates, differentiates with
+the Leibniz rule to get the density, and recognises the angular integral
+$\frac{1}{2\pi}\int_0^{2\pi}\exp(\nu x\cos\theta')\,d\theta' = I_0(\nu x)$ as
+the very definition of $I_0$. If you open those two slides in the extracted
+text you will see mangled symbols --- the PDF stored the equations as special
+math glyphs that do not survive copy-paste. \textbf{Trust the slide images, not
+the extracted text, on heavy-equation slides.} The clean statement is the
+boxed density above.
+\end{notebox}
+
+\subsection{Ultrasound speckle}
+
+Ultrasound noise is genuinely messy --- it depends on the device, the wave
+coherence, and the tissue's scattering density, and people model it with
+Rician, Rayleigh, or K-distributions \deck{ImageDenoising, slide 23}. A common
+working model is \emph{multiplicative speckle}
+\deck{ImageDenoising, slide 45}:
+\[
+Y = X + \sqrt{X}\,Z, \qquad Z\sim\mathcal{N}(0,\sigma^2),
+\]
+so that the noise grows with the signal (its standard deviation scales like
+$\sqrt{X}$). You recover the likelihood $p(y\mid x)$ by the change-of-variables
+formula for densities.
+
+\subsection{Two facts that pay off later}
+
+\textbf{Averaging helps by $\sqrt{N}$.} If you acquire the same voxel $N$ times
+with i.i.d.\ noise and average, the signal mean grows like $N$ but the standard
+deviation only like $\sqrt N$, so SNR improves by $\sqrt N$
+\deck{ImageDenoising, slide 24}. This is why slow MRI sequences average repeats,
+and why ``just scan longer'' is the lazy way to a cleaner image.
+
+\textbf{Variance stabilisation.} It is sometimes convenient to turn
+signal-dependent noise into roughly constant-variance noise so you can pretend
+it is Gaussian. For Poisson data the \textbf{Anscombe transform}
+\[
+f(X) = 2\sqrt{X + \tfrac{3}{8}}
+\]
+maps a Poisson variable to something with variance $\approx 1$
+\deck{ImageDenoising, slide 30}. Denoise in the transformed domain, then invert.
+It is a trick, not a religion --- the course prefers modelling the real noise
+--- but it is good to recognise.
+
+% ---------------------------------------------------------------------
+\section{Priors: teaching the computer what an image looks like}
+% ---------------------------------------------------------------------
+
+The likelihood alone cannot denoise. If we only maximise $p(y\mid x)$ with a
+per-pixel Gaussian, the best answer is $\xhat = y$: ``the cleanest explanation
+of the noisy image is the noisy image itself''. We need a \textbf{prior}
+$p(x)$ that says some images are more plausible than others. Three physical
+beliefs drive almost every image prior \deck{ImageModeling, slide 16}:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item intensities usually vary \emph{smoothly} across space;
+  \item big jumps happen, but only at \emph{object boundaries};
+  \item the number of objects is far smaller than the number of pixels.
+\end{enumerate}
+
+\subsection{Random fields on a grid}
+
+To turn ``neighbouring pixels are similar'' into probability, we put a
+\textbf{random field} on the pixel lattice \deck{ImageModeling, slide 19}: a
+collection of random variables $\{X_i\}$, one per site $i$, together with a
+\textbf{neighbourhood system} $N=\{N_i\}$ that lists which sites are neighbours
+\deck{ImageModeling, slide 20}. In 2D the usual choices are the 4-neighbour
+(up/down/left/right) or 8-neighbour systems; in 3D, 6/18/26 neighbours. A
+\textbf{clique} is a set of sites that are all mutually neighbours --- single
+pixels, neighbouring pairs, and so on \deck{ImageModeling, slide 21}.
+
+\subsection{Markov Random Fields}
+
+A \textbf{Markov Random Field} (MRF) is a random field with a local-memory
+property \deck{ImageModeling, slide 22}:
+\[
+p(X_i \mid X_{S\setminus\{i\}}) \;=\; p(X_i \mid X_{N_i}).
+\]
+In words: \emph{a pixel, given its neighbours, forgets about the rest of the
+image.} This is the spatial version of the Markov property. A common
+misconception, worth nailing now: this does \emph{not} say that far-apart pixels
+are independent. They are only \emph{conditionally} independent given the
+pixels between them; information still propagates across the whole image,
+neighbour to neighbour.
+
+\subsection{Gibbs fields, energy, and temperature}
+
+MRFs are defined by their local conditionals, which is awkward --- we would
+rather write down the joint distribution of the whole image. The
+\textbf{Hammersley--Clifford theorem} (1971) is what lets us
+\deck{ImageModeling, slides 24, 35--43}:
+
+\begin{keybox}[Hammersley--Clifford]
+A random field is an MRF with respect to a neighbourhood system \emph{if and
+only if} it is a \textbf{Gibbs random field} with respect to the same system
+(assuming all configurations have positive probability). Equivalently, its
+joint distribution is a Gibbs distribution
+\[
+p(x) \;=\; \frac{1}{Z}\,\exp\!\left(-\frac{U(x)}{T}\right),
+\qquad
+U(x) = \sum_{c \in \mathcal{C}} V_c(x_c).
+\]
+\end{keybox}
+
+Here $U$ is the \textbf{energy}, a sum of \textbf{clique potentials} $V_c$ that
+you design to encode your beliefs; $Z$ (the \textbf{partition function}) is the
+normaliser that makes the probabilities sum to one; and $T$ is a
+\textbf{temperature} \deck{ImageModeling, slides 25--29}. Low energy means high
+probability, so a ``plausible'' image is a \emph{low-energy} image. The
+temperature controls how peaked the distribution is: as $T\to 0$ all the mass
+piles onto the lowest-energy images, and as $T\to\infty$ every image becomes
+equally likely (a uniform distribution). By default we take $T=1$.
+
+The partition function $Z$ is the villain of the story: summing over every
+possible image to compute it is hopeless. The saving grace is that for finding
+the \emph{most probable} image we maximise $p(x)$ over $x$, and $Z$ does not
+depend on $x$, so it drops out. We almost never need $Z$ itself.
+
+\subsection{Why a naive prior blurs edges, and how to fix it}
+
+Now the design question: what should the clique potential be? Take the simplest
+useful case --- a pixel $x$ with neighbours $y_i = x + r_i$, where $r_i$ is the
+deviation of neighbour $i$ \deck{ImageModeling, slide 45}. Model the prior
+energy as a sum of penalties on deviations,
+\[
+E(x) = \sum_i g(y_i - x),
+\]
+and remember that the most-probable $x$ minimises this energy
+\deck{ImageModeling, slide 46}. Choose $g$ even, and write $g(u)=H(|u|^2)$. The
+stationarity condition $E'(x)=0$ gives a beautiful interpretation: the update
+on $x$ is a \emph{weighted average} of its neighbours, with weights
+$h(u) = g'(u)/(2u)$ acting as an interaction strength \deck{ImageModeling,
+slides 47--48}. The force that neighbour $y_i$ exerts on $x$ is proportional to
+$(y_i-x)\,h(y_i-x)$.
+
+This single picture explains the central tension of image priors:
+
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Quadratic penalty} $g(u)=u^2$ gives $h(u)=1$
+  \deck{ImageModeling, slide 49}. This is a Gaussian prior. The force
+  $u\cdot h(u)=u$ keeps \emph{growing} with the deviation, so a real edge (a
+  big $u$) pulls just as hard as noise --- the model fights every jump and
+  \textbf{blurs edges}. It also makes discontinuities ``extremely unlikely'',
+  which is exactly wrong for medical images full of boundaries.
+  \item \textbf{Edge-preserving penalties} are designed so the force
+  \emph{saturates}: as $u\to\infty$, $h(u)\to 0$ and $u\,h(u)$ stays bounded
+  \deck{ImageModeling, slides 50--56}. Then a large deviation is recognised as
+  ``probably a real edge, leave it alone''. The Huber penalty (quadratic near
+  zero, linear far out) and the generalised-Gaussian family are the workhorses.
+\end{itemize}
+
+\begin{keybox}[The edge-preservation rule of thumb]
+A good image prior should penalise \emph{small} deviations like a quadratic (to
+kill noise in flat regions) and penalise \emph{large} deviations only gently
+--- at most linearly (to leave edges intact). Quadratic-everywhere = smooth
+everywhere = blurred. This is the same reason $\ell^1$ beats $\ell^2$, which we
+return to in Part~II.
+\end{keybox}
+
+% ---------------------------------------------------------------------
+\section{Bayesian denoising as MAP estimation}
+% ---------------------------------------------------------------------
+
+Now assemble the pieces. The \textbf{posterior} is likelihood times prior,
+normalised \deck{ImageDenoising, slide 25}. The \textbf{maximum a posteriori}
+(MAP) estimate is the image that maximises it:
+\[
+\xhat
+  = \argmax_x\; p(y\mid x)\,p(x)
+  = \argmin_x\; \Big[\,\underbrace{-\log p(y\mid x)}_{\text{data fidelity}}
+        \;\underbrace{-\log p(x)}_{\text{regularisation}}\,\Big].
+\]
+Taking the negative logarithm turns the product into a sum and the search for a
+peak into the more familiar search for a valley. The two terms have crisp jobs:
+the \textbf{data-fidelity} term forces agreement with the measurement; the
+\textbf{regularisation} term forces the answer to look like a plausible image.
+
+For an i.i.d.\ Gaussian noise model the likelihood factorises across pixels
+\deck{ImageDenoising, slide 28}, $p(y\mid x)=\prod_i \mathcal{N}(y_i\mid
+x_i,\sigma^2)$, and the data term becomes $\tfrac{1}{2\sigma^2}\norm{y-x}_2^2$.
+With a Gibbs prior of energy $U$, the whole objective is
+\[
+\xhat = \argmin_x\; \frac{1}{2\sigma^2}\norm{y-x}_2^2 + U(x).
+\]
+
+\begin{keybox}[Prior $=$ regulariser: the dictionary]
+A negative-log Gibbs prior \emph{is} a regulariser. This is the single most
+useful equivalence in the course.
+\[
+\text{Gaussian prior} \;\leftrightarrow\; \ell^2\ \text{(Tikhonov) penalty},
+\qquad
+\text{Laplace prior} \;\leftrightarrow\; \ell^1\ \text{(TV/Lasso) penalty}.
+\]
+Whenever you see a regularised least-squares problem, you are looking at a MAP
+estimate in disguise, and vice versa.
+\end{keybox}
+
+% ---------------------------------------------------------------------
+\section{Actually solving it: ICM, gradient descent, annealing}
+% ---------------------------------------------------------------------
+
+The MAP objective is usually too big and too coupled to solve in one shot, so
+we optimise iteratively.
+
+\paragraph{Iterated Conditional Modes (ICM).} The simplest idea: fix every
+pixel except one, and move that one pixel to the value that maximises its
+\emph{local} conditional posterior; then sweep over all pixels and repeat
+\deck{ImageDenoising, slides 37--39}. The local objective is just
+(local likelihood) $\times$ (local conditional prior), which thanks to the MRF
+property only involves the pixel's neighbours. Stop when a full sweep barely
+changes the image (for example when the RMS change drops below $1\%$). ICM is
+easy and monotone, but it is greedy and can get stuck.
+
+\paragraph{Parallel gradient updates.} ICM visits pixels one at a time, and the
+visiting order can leave artefacts \deck{ImageDenoising, slide 40}. A practical
+alternative is to step every pixel towards its local mode at once (gradient
+ascent on the posterior), and accept the step if the posterior improved. For
+the Rician and speckle likelihoods the per-voxel derivatives involve the Bessel
+functions $I_0$ and $I_1$ \deck{ImageDenoising, slides 43, 46}; the algebra is
+fiddly but the principle is identical.
+
+\paragraph{Balancing the two terms.} In practice you weight the prior and the
+likelihood against each other with parameters $\beta$ (prior strength) and
+$\alpha$ (likelihood strength) \deck{ImageDenoising, slides 47--52}. The two
+extremes are illuminating: $\beta=0$ removes the prior entirely and you fall
+back to the \textbf{maximum-likelihood} estimate (pure data fit, noisy);
+$\alpha=0$ makes the likelihood flat and the answer is driven only by the prior
+(over-smoothed). The art is in between, and that knob is the single most
+important thing you will tune in the notebooks.
+
+\paragraph{Simulated annealing (escaping local minima).} When the energy is
+non-convex --- especially for discrete labelling --- gradient methods get
+trapped. \textbf{Simulated annealing} \deck{ImageModeling, slides 30--34}
+borrows from metallurgy: propose a random move; always accept it if it lowers
+the energy; accept it \emph{even if it raises} the energy with probability
+$p(y)/p(x)$, which at high temperature is generous. Start hot (wander freely,
+ignore where you started), then cool slowly so the walker settles into a deep
+valley. Cool too fast and you freeze into the nearest dent; the theory needs a
+painfully slow schedule like $T(n)=d/\log n$ for a global-optimum guarantee.
+
+% ---------------------------------------------------------------------
+\section{The modern face of the smoothness prior: total variation}
+% ---------------------------------------------------------------------
+
+The edge-preserving idea has a famous continuous cousin. \textbf{Total
+variation} (TV) measures the total amount of intensity change in an image,
+\[
+\mathrm{TV}(x) = \int \norm{\nabla x}\, ,
+\]
+i.e.\ the $\ell^1$ norm of the gradient magnitude. The
+Rudin--Osher--Fatemi (ROF) model denoises by solving
+\[
+\xhat = \argmin_x\; \tfrac12\norm{x-y}_2^2 + \lambda\,\mathrm{TV}(x).
+\]
+Because TV uses an $\ell^1$ norm of the gradient, it is happy to leave a few
+large jumps (edges) in exchange for flattening everything else --- precisely
+the edge-preserving behaviour we engineered by hand above, now stated in one
+line. Its tell-tale artefact is the ``staircase'' effect: smooth ramps turn
+into little flat steps. TV is non-differentiable at zero, so it is solved with
+proximal/primal--dual methods rather than plain gradient descent (see
+\href{https://angms.science/doc/TV/TV.pdf}{A.\,M.-C.\ So's ROF notes} and the
+\href{https://sangillee.com/2026-01-06-total-variation-minimization/}{Chambolle--Pock walkthrough}).
+You will implement a simple version in Notebook~3.
+
+% =====================================================================
+\part*{Part II -- Inverse Problems and Bayesian Reconstruction}
+\addcontentsline{toc}{section}{PART II -- Inverse Problems and Reconstruction}
+% =====================================================================
+
+% ---------------------------------------------------------------------
+\section{From denoising to reconstruction: the forward model}
+% ---------------------------------------------------------------------
+
+In denoising the measurement lived in the same space as the image. In
+\textbf{reconstruction} the scanner first \emph{transforms} the image and then
+adds noise \deck{ImageReconstruction, slide 2}:
+\[
+y = G x + n,
+\]
+where $G$ is the \textbf{system operator} (a big matrix, conceptually) that
+models the physics of acquisition, and $n$ is noise. The image $x$ is the
+physical quantity of interest --- attenuation coefficients in CT, magnetisation
+in MRI. The prior on $x$ is exactly the same machinery as denoising (an MRF, a
+TV prior, a dictionary). All that is new is $G$.
+
+With i.i.d.\ Gaussian noise, the negative log-likelihood is again a squared
+error, now \emph{through} $G$ \deck{ImageReconstruction, slide 3}:
+\[
+-\log p(y\mid x) = \tfrac{1}{2\sigma^2}\norm{Gx - y}_2^2 + \text{const}.
+\]
+
+% ---------------------------------------------------------------------
+\section{Why reconstruction is hard: ill-posedness}
+% ---------------------------------------------------------------------
+
+If $G$ were nicely invertible we would just compute $x = G^{-1}y$ and go home.
+It never is. Reconstruction problems are \textbf{ill-posed}
+\deck{ImageModeling, slides 69--70}:
+\begin{itemize}[nosep,leftmargin=*]
+  \item $G$ may have a non-trivial \textbf{null space} --- many different images
+  produce \emph{exactly} the same measurements, so the data alone cannot pick
+  one (under-determined).
+  \item Even when a unique least-squares solution exists, $G$ can be
+  \textbf{ill-conditioned}: tiny measurement noise gets amplified into huge
+  swings in $x$. The objective has long, flat ``ridges'' along which many very
+  different images fit almost equally well --- the origin of the name
+  \emph{ridge} regression \deck{ImageModeling, slide 70}.
+\end{itemize}
+The cure is the prior. By adding $-\log p(x)$ we tilt the flat ridge so that one
+plausible image becomes the clear winner. This is regularisation, and it is not
+optional --- it is what makes the problem solvable at all.
+
+% ---------------------------------------------------------------------
+\section{The MAP reconstruction objective}
+% ---------------------------------------------------------------------
+
+Putting likelihood and prior together gives the objective that the rest of the
+course keeps reusing:
+\[
+\xhat \;=\; \argmin_x\; \frac{1}{2\sigma^2}\norm{Gx-y}_2^2 \;+\; \lambda\,R(x).
+\]
+Two classic choices of regulariser $R$, both seen already as priors:
+
+\paragraph{Tikhonov / ridge ($\ell^2$).} $R(x)=\norm{\Gamma x}_2^2$
+\deck{ImageModeling, slides 70--74}. The objective stays quadratic, so it has a
+closed-form solution
+\[
+\xhat = (G^{\!\top}G + \Gamma^{\!\top}\Gamma)^{-1} G^{\!\top} y,
+\]
+and a clean Bayesian reading: it is the MAP estimate under a Gaussian
+likelihood and a zero-mean Gaussian prior with covariance
+$(\Gamma^{\!\top}\Gamma)^{-1}$. Easy to solve, but it smooths edges (it is the
+quadratic prior again).
+
+\paragraph{TV / Lasso ($\ell^1$).} $R(x)=\norm{x}_1$ or $\mathrm{TV}(x)$
+\deck{ImageModeling, slides 75--84}. The Bayesian reading is a Laplace prior.
+The payoff is \textbf{sparsity}: $\ell^1$ drives small coefficients to exactly
+zero rather than merely shrinking them. Geometrically, the $\ell^1$ ball has
+sharp corners on the axes, and the solution of a constrained fit tends to land
+on a corner --- where coordinates are zero \deck{ImageModeling, slides 80--81}.
+That is why $\ell^1$ recovers sparse signals and edge maps where $\ell^2$ gives
+a blurry compromise. The ideal sparsity penalty is the $\ell^0$ ``norm'' (count
+of non-zeros), but it is NP-hard, and $\ell^1$ is the tractable convex
+relaxation that still promotes sparsity \deck{ImageModeling, slide 84}. Real
+images make this concrete: the histogram of wavelet coefficients of natural
+images is sharply peaked at zero and heavy-tailed --- decidedly non-Gaussian,
+exactly the shape an $\ell^1$/Laplace prior expects \deck{ImageModeling,
+slide 85}.
+
+% ---------------------------------------------------------------------
+\section{The optimisation toolbox}
+% ---------------------------------------------------------------------
+
+Reconstruction objectives are minimised numerically, so you need a small
+optimisation toolkit \deck{ImageReconstruction, slides 4--38}.
+
+\subsection{The one gradient you must be able to derive}
+
+Everything starts from the gradient of the data term. With $f(x)=\norm{Gx-y}_2^2
+= (Gx-y)^{\!\top}(Gx-y)$, set $w=Gx-y$ and use the chain rule
+\deck{ImageReconstruction, slide 8}:
+\[
+\frac{\partial f}{\partial w} = 2w^{\!\top},
+\qquad
+\frac{\partial w}{\partial x} = G,
+\qquad\Rightarrow\qquad
+\frac{\partial f}{\partial x} = 2(Gx-y)^{\!\top}G,
+\]
+and the gradient is the transpose of that derivative:
+\[
+\boxed{\;\nabla_x \norm{Gx-y}_2^2 = 2\,G^{\!\top}(Gx-y).\;}
+\]
+Notice the two operators: $G$ takes you image$\,\to\,$data (the forward map),
+and $G^{\!\top}$ takes you data$\,\to\,$image (the \emph{adjoint}, or
+back-projection). Every iterative reconstruction is a loop of ``apply $G$, see
+the mismatch, push it back with $G^{\!\top}$''.
+
+\begin{notebox}[Row vectors, gradients, and a notation gotcha]
+The derivative of a scalar function is naturally a \emph{row} vector; the
+\emph{gradient} is its transpose, a column vector the same shape as $x$
+\deck{ImageReconstruction, slides 5--6}. For a vector-valued function the
+derivative is the \textbf{Jacobian} (rows = outputs, columns = inputs). Keeping
+shapes straight is most of the battle in matrix calculus; the
+\href{https://www.math.uwaterloo.ca/~hwolkowi/matrixcookbook.pdf}{Matrix
+Cookbook} is the reference to keep open.
+\end{notebox}
+
+\subsection{Gradient descent and step sizes}
+
+Gradient descent just walks downhill \deck{ImageReconstruction, slides 18--22}:
+\[
+x_{k+1} = x_k - s\,\nabla f(x_k).
+\]
+The whole game is the step size $s$. A robust, derivative-free rule
+\deck{ImageReconstruction, slide 22}: propose a step; if the objective went
+down, accept it and grow $s$ a little (say $\times 1.1$) for next time; if it
+went up, halve $s$ and try again. This adapts to the local landscape without an
+expensive line search. Formal line searches (golden-section, Newton,
+quasi-Newton) exist but are often skipped when an approximate step is good
+enough \deck{ImageReconstruction, slide 19}.
+
+\subsection{Second-order and least-squares methods}
+
+\textbf{Newton's method} uses curvature: expand $f$ to second order and jump to
+the minimum of that quadratic, giving the update $H\,\Delta x = -\nabla f$ with
+$H$ the \textbf{Hessian} \deck{ImageReconstruction, slides 26--32}. It converges
+fast near the optimum but needs second derivatives. For least-squares problems
+$S(\beta)=\sum_i r_i(\beta)^2$, the \textbf{Gauss--Newton} method approximates
+the Hessian by $J^{\!\top}J$ (just first derivatives of the residuals), and
+\textbf{Levenberg--Marquardt} damps it,
+\[
+\Delta = -s\,(J^{\!\top}J + \lambda I)^{-1} J^{\!\top} r,
+\]
+interpolating between Gauss--Newton (small $\lambda$) and plain gradient descent
+(large $\lambda$) \deck{ImageReconstruction, slides 35--38}. LM is the default
+for nonlinear least squares.
+
+\subsection{Constraints: projected gradient and POCS}
+
+Often $x$ must obey constraints --- attenuation coefficients cannot be negative,
+for instance. \textbf{Projected gradient descent} takes an ordinary step and
+then projects back onto the constraint set; for convex sets it behaves like
+ordinary gradient descent \deck{ImageReconstruction, slide 25}. Enforcing
+several convex constraints by cycling through their projections is the method of
+\textbf{Projections Onto Convex Sets} (POCS), which we meet again in CT.
+
+\subsection{Complex derivatives (you will need them for MRI)}
+
+MRI images are complex-valued, and differentiating with respect to a complex
+variable is genuinely different from the real case, because the limit must hold
+as the step approaches zero \emph{from every direction in the plane}
+\deck{ImageReconstruction, slides 9--14}. Forcing the real-axis and
+imaginary-axis limits to agree gives the \textbf{Cauchy--Riemann equations}
+$u_x=v_y,\ u_y=-v_x$. The practical escape hatch used in reconstruction code is
+the \emph{complex-as-doubled-real} trick: represent $w=x+iy$ as the real vector
+$[x,y]^{\!\top}$ and optimise there. Then for $f(w)=w^{*}w=\abs{w}^2$ you get the
+tidy result $\nabla_w f = 2w$, and gradient descent on complex images proceeds
+just like the real case.
+
+% ---------------------------------------------------------------------
+\section{Algebraic reconstruction (ART)}
+% ---------------------------------------------------------------------
+
+There is an alternative to optimising a global objective: enforce one
+measurement equation at a time. \textbf{ART} (Algebraic Reconstruction
+Technique), the Kaczmarz method by another name, writes the system as
+$Ax=b$ and repeatedly nudges the current image to satisfy each row
+\deck{XrayCT, slides 85--92}:
+\[
+x \;\leftarrow\; x + \lambda_k\,\frac{b_i - \inner{a_i}{x}}{\norm{a_i}^2}\,a_i,
+\]
+where $a_i^{\!\top}$ is the $i$-th row of $A$ and $0<\lambda_k\le 1$ is a
+relaxation parameter. Geometrically, each row defines a hyperplane of consistent
+images, and the update \emph{projects} onto it --- POCS again. ART shines
+exactly when the clean Fourier inversion (next part) fails: few view angles,
+metal artefacts, very low dose.
+
+% =====================================================================
+\section{CT and MRI as forward operators (a preview)}
+% =====================================================================
+
+The two big medical-imaging inverse problems are just our reconstruction
+template with a specific operator $G$ in the middle. We preview them in one
+paragraph each; the full physics and modelling intuition --- Beer's law, the
+Radon transform, filtered back-projection, the Bloch equations, $k$-space --- get
+their own dedicated chapter in \texttt{week\_3} (CT \& MRI fundamentals), with a
+companion notebook.
+
+\paragraph{CT: $G$ is the Radon transform.} An X-ray measures the line integral
+of tissue attenuation along its path. Collect such integrals over many angles
+and you have the \textbf{Radon transform} of the attenuation image --- the
+sinogram. Reconstruction inverts it: analytically by \textbf{filtered
+back-projection}, or, when data is noisy or sparse, by the same MAP objective
+$\min_x \tfrac12\norm{Gx-y}_2^2+\lambda R(x)$ with $G$ the Radon operator and
+$G^{\!\top}$ the back-projector.
+
+\paragraph{MRI: $G$ is the Fourier transform.} An MRI scanner measures the 2D
+\textbf{Fourier transform} of the slice (``$k$-space''), one sample at a time.
+Reconstruction is an inverse FFT when $k$-space is full; when it is
+under-sampled (to scan faster) it becomes an ill-posed inverse problem cured by
+a prior --- compressed-sensing MRI. Same template, $G$ a (subsampled) Fourier
+operator.
+
+\begin{keybox}[Where the physics lives]
+Everything about \emph{how} CT and MRI actually form $G$ and $y$ --- photon
+counting, attenuation and Hounsfield units, the Fourier Slice Theorem, spins,
+$T_1/T_2$ relaxation, RF excitation and spatial encoding --- is in the
+\texttt{week\_3} handbook (\texttt{MIC\_CT\_and\_MRI\_Fundamentals.tex}). Here we
+only needed to know that CT and MRI are \emph{linear forward operators}, so the
+Bayesian reconstruction of Part~II applies to them unchanged.
+\end{keybox}
+
+% =====================================================================
+\section{The picture to carry forward}
+% =====================================================================
+
+Step back and the three modalities are one method:
+\[
+\xhat = \argmin_x\; \tfrac{1}{2\sigma^2}\norm{Gx-y}_2^2 + \lambda R(x),
+\qquad
+\begin{cases}
+G=I & \text{denoising},\\
+G=\text{Radon} & \text{CT},\\
+G=\text{Fourier} & \text{MRI}.
+\end{cases}
+\]
+Choose the data term from the noise physics (Gaussian, Poisson, Rician); choose
+the regulariser from what images look like (smooth with edges $\Rightarrow$
+edge-preserving / TV / $\ell^1$); then descend. Denoising is the special case
+that taught us the prior; CT and MRI are the same optimisation with a Radon or
+Fourier operator in the middle and real physics setting $G$ and the noise. Hold
+on to that and the rest of the course is variations on a theme.
+
+\begin{keybox}[Do the notebooks]
+\textbf{Notebook 1} builds the four noise models and shows their histograms,
+SNR, and the Anscombe transform. \textbf{Notebook 2} implements MAP denoising
+with an MRF prior (ICM and gradient descent) and lets you watch a quadratic
+prior blur edges while a Huber prior keeps them. \textbf{Notebook 3} sets up the
+forward model $y=Gx+n$ and reconstructs by deblurring (naive inverse vs Tikhonov
+vs TV) --- the general inverse problem. (The CT Radon/FBP and MRI $k$-space
+hands-on live in the \texttt{week\_3} notebook.) Run them, then change the
+numbers and break things --- that is where the understanding sticks.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{Bayesian / MRF foundations}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Geman \& Geman (1984), \href{https://doi.org/10.1109/TPAMI.1984.4767596}{\emph{Stochastic Relaxation, Gibbs Distributions, and the Bayesian Restoration of Images}} --- the founding paper (sections I--III).
+  \item C.\ Bouman, \href{https://engineering.purdue.edu/~bouman/publications/pdf/MBIP-book.pdf}{\emph{Model-Based Image Processing}} --- free book; chapters 1--2 then 7--8.
+  \item Mohammad-Djafari, \href{https://www.mdpi.com/1099-4300/23/12/1673}{\emph{Regularization, Bayesian Inference, and ML Methods for Inverse Problems}} (Entropy 2021) --- tutorial covering denoising, restoration, and CT in one place.
+\end{itemize}
+
+\textbf{Noise models}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Gudbjartsson \& Patz (1995), \href{https://onlinelibrary.wiley.com/doi/10.1002/mrm.1910340618}{\emph{The Rician Distribution of Noisy MRI Data}} --- four very readable pages.
+  \item \href{https://en.wikipedia.org/wiki/Anscombe_transform}{Anscombe transform} (Wikipedia) for variance stabilisation.
+\end{itemize}
+
+\textbf{Denoising / total variation}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Steve Brunton, \href{https://www.youtube.com/watch?v=DLfMsBKaDOY}{\emph{Sparsity and the L1 norm}} (video intuition).
+  \item A.\ M.-C.\ So, \href{https://angms.science/doc/TV/TV.pdf}{\emph{Total Variation and the ROF denoising problem}} (concise derivation).
+  \item \href{https://sangillee.com/2026-01-06-total-variation-minimization/}{TV minimisation with Chambolle--Pock} (worked tutorial); Buades et al.\ (2005), \href{https://ieeexplore.ieee.org/document/1467423}{\emph{A non-local algorithm for image denoising}}.
+\end{itemize}
+
+\textbf{Inverse problems / optimisation}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://computational-imaging.de/book/06_InverseProblemsInCompimg.html}{Inverse Problems in Computational Imaging} --- course notes with the MAP derivation.
+  \item Steve Brunton, \href{https://www.youtube.com/watch?v=Jl3Ftf6S5MQ}{\emph{Inverse problems}} (video); Petersen \& Pedersen, \href{https://www.math.uwaterloo.ca/~hwolkowi/matrixcookbook.pdf}{\emph{The Matrix Cookbook}}.
+  \item Boyd \& Vandenberghe, \href{https://web.stanford.edu/~boyd/cvxbook/}{\emph{Convex Optimization}}, ch.\ 9 (gradient/Newton methods).
+\end{itemize}
+
+\textbf{CT and MRI.} The full physics, modelling intuition, and resource list
+live in the dedicated \texttt{week\_3} handbook (CT \& MRI fundamentals).
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736 slide
+decks, with attribution. For mentee use on this project; please do not
+redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

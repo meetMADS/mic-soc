@@ -1,0 +1,230 @@
+% A starter bibliography for the MIC Summer-of-Code handbook.
+% Both Overleaf files currently use \href{} links rather than \cite{}
+% citations, so this file is here as a launchpad: when mentees want to
+% turn their week-7/8 work into a longer report, they can \cite{} from
+% the entries below.
+
+% ----- Classical priors / MRFs / Bayesian image processing -----
+@article{geman1984stochastic,
+  author  = {Geman, Stuart and Geman, Donald},
+  title   = {Stochastic Relaxation, {G}ibbs Distributions, and the Bayesian Restoration of Images},
+  journal = {IEEE Trans. Pattern Anal. Mach. Intell.},
+  volume  = {PAMI-6},
+  number  = {6},
+  pages   = {721--741},
+  year    = {1984},
+  doi     = {10.1109/TPAMI.1984.4767596}
+}
+
+@book{bouman2022mbip,
+  author    = {Bouman, Charles A.},
+  title     = {Model-Based Image Processing},
+  year      = {2022},
+  note      = {Free PDF: \url{https://engineering.purdue.edu/~bouman/publications/pdf/MBIP-book.pdf}}
+}
+
+@article{buades2005nlm,
+  author  = {Buades, Antoni and Coll, Bartomeu and Morel, Jean-Michel},
+  title   = {A Non-local Algorithm for Image Denoising},
+  journal = {CVPR},
+  year    = {2005},
+  doi     = {10.1109/CVPR.2005.38}
+}
+
+@article{gudbjartsson1995rician,
+  author  = {Gudbjartsson, H. and Patz, S.},
+  title   = {The {R}ician distribution of noisy {MRI} data},
+  journal = {Magnetic Resonance in Medicine},
+  volume  = {34},
+  number  = {6},
+  pages   = {910--914},
+  year    = {1995},
+  doi     = {10.1002/mrm.1910340618}
+}
+
+% ----- Inverse problems / CT / MRI -----
+@book{kak2001ctbook,
+  author    = {Kak, Avinash C. and Slaney, Malcolm},
+  title     = {Principles of Computerized Tomographic Imaging},
+  publisher = {SIAM},
+  year      = {2001},
+  note      = {Free electronic edition: \url{https://www.slaney.org/pct/}}
+}
+
+@article{lustig2007sparsemri,
+  author  = {Lustig, M. and Donoho, D. L. and Pauly, J. M.},
+  title   = {Sparse {MRI}: The application of compressed sensing for rapid {MR} imaging},
+  journal = {Magnetic Resonance in Medicine},
+  volume  = {58},
+  number  = {6},
+  pages   = {1182--1195},
+  year    = {2007},
+  doi     = {10.1002/mrm.21391}
+}
+
+@article{aggarwal2018modl,
+  author  = {Aggarwal, Hemant Kumar and Mani, Merry P. and Jacob, Mathews},
+  title   = {{MoDL}: Model-Based Deep Learning Architecture for Inverse Problems},
+  journal = {IEEE Trans. Med. Imaging},
+  volume  = {38},
+  number  = {2},
+  pages   = {394--405},
+  year    = {2019},
+  doi     = {10.1109/TMI.2018.2865356}
+}
+
+% ----- Segmentation / shape / registration -----
+@article{cootes1995asm,
+  author  = {Cootes, T. F. and Taylor, C. J. and Cooper, D. H. and Graham, J.},
+  title   = {Active Shape Models---Their Training and Application},
+  journal = {Computer Vision and Image Understanding},
+  volume  = {61},
+  number  = {1},
+  pages   = {38--59},
+  year    = {1995},
+  doi     = {10.1006/cviu.1995.1004}
+}
+
+@article{boykov2006graphcuts,
+  author  = {Boykov, Yuri and Funka-Lea, Gareth},
+  title   = {Graph Cuts and Efficient {ND} Image Segmentation},
+  journal = {International Journal of Computer Vision},
+  volume  = {70},
+  pages   = {109--131},
+  year    = {2006},
+  doi     = {10.1007/s11263-006-7934-5}
+}
+
+@article{vonluxburg2007spectral,
+  author  = {von Luxburg, Ulrike},
+  title   = {A Tutorial on Spectral Clustering},
+  journal = {Statistics and Computing},
+  volume  = {17},
+  pages   = {395--416},
+  year    = {2007},
+  doi     = {10.1007/s11222-007-9033-z}
+}
+
+@article{pluim2003mi,
+  author  = {Pluim, J. P. W. and Maintz, J. B. A. and Viergever, M. A.},
+  title   = {Mutual-information-based registration of medical images: a survey},
+  journal = {IEEE Trans. Med. Imaging},
+  volume  = {22},
+  number  = {8},
+  pages   = {986--1004},
+  year    = {2003},
+  doi     = {10.1109/TMI.2003.815867}
+}
+
+@article{balakrishnan2019voxelmorph,
+  author  = {Balakrishnan, Guha and Zhao, Amy and Sabuncu, Mert R. and Guttag, John and Dalca, Adrian V.},
+  title   = {{VoxelMorph}: A Learning Framework for Deformable Medical Image Registration},
+  journal = {IEEE Trans. Med. Imaging},
+  volume  = {38},
+  number  = {8},
+  pages   = {1788--1800},
+  year    = {2019},
+  doi     = {10.1109/TMI.2019.2897538}
+}
+
+% ----- Deep learning in medical imaging -----
+@inproceedings{ronneberger2015unet,
+  author    = {Ronneberger, Olaf and Fischer, Philipp and Brox, Thomas},
+  title     = {{U-Net}: Convolutional Networks for Biomedical Image Segmentation},
+  booktitle = {MICCAI},
+  year      = {2015},
+  doi       = {10.1007/978-3-319-24574-4_28}
+}
+
+@article{isensee2021nnunet,
+  author  = {Isensee, Fabian and Jaeger, Paul F. and Kohl, Simon A. A. and Petersen, Jens and Maier-Hein, Klaus H.},
+  title   = {{nnU-Net}: a self-configuring method for deep learning-based biomedical image segmentation},
+  journal = {Nature Methods},
+  volume  = {18},
+  pages   = {203--211},
+  year    = {2021},
+  doi     = {10.1038/s41592-020-01008-z}
+}
+
+@article{litjens2017survey,
+  author  = {Litjens, Geert and others},
+  title   = {A survey on deep learning in medical image analysis},
+  journal = {Medical Image Analysis},
+  volume  = {42},
+  pages   = {60--88},
+  year    = {2017},
+  doi     = {10.1016/j.media.2017.07.005}
+}
+
+@article{ma2024medsam,
+  author  = {Ma, Jun and others},
+  title   = {Segment anything in medical images},
+  journal = {Nature Communications},
+  volume  = {15},
+  pages   = {654},
+  year    = {2024},
+  doi     = {10.1038/s41467-024-44824-z}
+}
+
+% ----- Generative models -----
+@inproceedings{kingma2014vae,
+  author    = {Kingma, Diederik P. and Welling, Max},
+  title     = {Auto-Encoding Variational Bayes},
+  booktitle = {ICLR},
+  year      = {2014},
+  eprint    = {1312.6114}
+}
+
+@inproceedings{goodfellow2014gan,
+  author    = {Goodfellow, Ian J. and others},
+  title     = {Generative Adversarial Nets},
+  booktitle = {NeurIPS},
+  year      = {2014}
+}
+
+@inproceedings{gulrajani2017wgan,
+  author    = {Gulrajani, Ishaan and Ahmed, Faruk and Arjovsky, Martin and Dumoulin, Vincent and Courville, Aaron},
+  title     = {Improved Training of {W}asserstein {GAN}s},
+  booktitle = {NeurIPS},
+  year      = {2017}
+}
+
+@inproceedings{ho2020ddpm,
+  author    = {Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
+  title     = {Denoising Diffusion Probabilistic Models},
+  booktitle = {NeurIPS},
+  year      = {2020}
+}
+
+@article{chung2022scorebased,
+  author  = {Chung, Hyungjin and Ye, Jong Chul},
+  title   = {Score-based diffusion models for accelerated {MRI}},
+  journal = {Medical Image Analysis},
+  volume  = {80},
+  pages   = {102479},
+  year    = {2022},
+  doi     = {10.1016/j.media.2022.102479}
+}
+
+% ----- Textbooks -----
+@book{bishop2006prml,
+  author    = {Bishop, Christopher M.},
+  title     = {Pattern Recognition and Machine Learning},
+  publisher = {Springer},
+  year      = {2006}
+}
+
+@book{boyd2004convex,
+  author    = {Boyd, Stephen and Vandenberghe, Lieven},
+  title     = {Convex Optimization},
+  publisher = {Cambridge University Press},
+  year      = {2004},
+  note      = {Free PDF: \url{https://web.stanford.edu/~boyd/cvxbook/}}
+}
+
+@book{scholkopf2002kernels,
+  author    = {Sch{\"o}lkopf, Bernhard and Smola, Alexander J.},
+  title     = {Learning with Kernels: Support Vector Machines, Regularization, Optimization, and Beyond},
+  publisher = {MIT Press},
+  year      = {2002}
+}

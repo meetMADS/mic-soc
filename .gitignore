@@ -1,0 +1,27 @@
+# =====================================================================
+#  What NOT to commit to the (public) course-site repo
+# =====================================================================
+
+# ---- build artifacts ----
+site/_build/
+**/__pycache__/
+*.pyc
+
+# ---- Bundled CS-736 slide decks: attribution-only, DO NOT redistribute. ----
+# The website does not need them; the theory chapters cite them with attribution.
+slides/*.pdf
+
+# ---- LaTeX build junk ----
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.bbl
+*.blg
+
+# ---- OS cruft ----
+.DS_Store
+Thumbs.db

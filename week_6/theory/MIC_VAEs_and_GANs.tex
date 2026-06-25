@@ -1,0 +1,422 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 6
+%  Deep Generative Modeling: VAEs, GANs, and a peek at Diffusion
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or
+%  upload to Overleaf and hit Recompile.
+%      pdflatex MIC_VAEs_and_GANs.tex
+%      pdflatex MIC_VAEs_and_GANs.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 DeepGenerativeModeling deck
+%  (VAE/GAN half), with attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\KL}{\mathrm{KL}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\title{\textbf{Deep Generative Models}\\[2pt]
+\large VAEs, GANs, and a peek at diffusion --- concept and applications\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 6}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+Last week a network \emph{classified} or \emph{segmented} an image. This week a
+network \emph{generates} one. A generative model learns the distribution of
+images $p(x)$ well enough to draw brand-new, realistic samples from it. We cover
+the three families you will meet --- \textbf{VAEs}, \textbf{GANs}, and (in
+preview) \textbf{diffusion} --- at the level of \emph{concept and applications},
+not a derivation marathon. The single thread to hold onto, and the reason this
+sits inside a Bayesian course at all: \textbf{a generative model is a learned
+prior}, and it plugs straight into the reconstruction objective you have used
+since Week 3. Keep the \deck{DeepGenerativeModeling} deck open (the generative
+material is slides 33--78); do the notebook for the concepts in NumPy. Real
+PyTorch/MONAI practice lives in the cited tutorials.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{Generative vs discriminative, and the core idea}
+% =====================================================================
+
+A \textbf{discriminative} model learns a boundary --- ``is this $x$ a cat or a
+dog?'', i.e.\ $p(\text{label}\mid x)$. A \textbf{generative} model learns the
+\emph{data itself} --- the distribution $p(x)$ of plausible images --- so that it
+can both score how typical a new image is and \emph{synthesise} new ones
+\deck{DeepGenerativeModeling, slide 33}.
+
+How do you represent a distribution over something as high-dimensional as an
+image? The trick behind every model this week is the same
+\deck{DeepGenerativeModeling, slide 34}:
+
+\begin{keybox}[The generative recipe]
+Start from a simple distribution that is trivial to sample --- a
+\textbf{standard normal} $Z\sim\mathcal{N}(0,I)$ in a low-dimensional
+\emph{latent space}. Learn a neural network $f_\theta$ that maps a latent sample
+to an image, $x = f_\theta(z)$, so that the induced distribution of generated
+images matches the true data distribution $p(x)$. To make a new image: sample
+$z$, push it through the decoder. The families differ only in \emph{how} they
+train $f_\theta$ to make the match.
+\end{keybox}
+
+% =====================================================================
+\section{Autoencoders: the warm-up}
+% =====================================================================
+
+Recall the encoder--decoder from Week 5. An \textbf{autoencoder} (AE) is the
+unsupervised version: an encoder compresses an image $X$ to a small latent code
+$h$, and a decoder reconstructs $X'\approx X$ from it
+\deck{DeepGenerativeModeling, slides 27--29}. Trained to minimise reconstruction
+error, the code $h$ becomes an \emph{efficient representation} of the data ---
+useful for denoising, anomaly detection, and as features. Regularising the AE
+(a bottleneck, weight penalties, dropout, noise) stops it from learning the
+trivial copy and forces it to capture structure.
+
+But a plain AE is \emph{not} generative: its latent space has holes, so a random
+$h$ usually decodes to garbage. The fix is to give the latent space a
+\emph{distribution} --- which is exactly what a VAE does.
+
+\begin{notebox}[A linear autoencoder is PCA]
+If the encoder and decoder are linear and the loss is squared error, the optimal
+autoencoder spans the same subspace as \textbf{PCA} --- the latent code is the
+projection onto the top principal components, and reconstruction error falls as
+you keep more. So the autoencoder idea is not new; it is PCA's nonlinear,
+learnable descendant. (You will see this concretely in the notebook.)
+\end{notebox}
+
+% =====================================================================
+\section{Variational Autoencoders (VAEs)}
+% =====================================================================
+
+A \textbf{VAE} makes the autoencoder generative by turning the latent code into a
+\emph{random variable} \deck{DeepGenerativeModeling, slides 49--51}. Instead of
+mapping $X$ to a single point $h$, the encoder maps $X$ to a whole
+\textbf{distribution} $q_\phi(Z\mid X)$ over latents (it outputs a mean and a
+variance). The decoder $p_\theta(X\mid Z)$ maps a latent sample back to an image.
+``Variational'' refers to this modelling of a \emph{family} of latent codes per
+input, which captures uncertainty and --- crucially --- fills in the latent space
+so that sampling works.
+
+\subsection{The objective: the ELBO}
+
+We would like to maximise the data likelihood $\log p(x)$, but the integral over
+latents is intractable. The standard move is to maximise a tractable lower bound,
+the \textbf{Evidence Lower BOund} \deck{DeepGenerativeModeling, slides 52--55}:
+\[
+\log p(x) \;\ge\; \underbrace{\E_{q_\phi(z\mid x)}\!\big[\log p_\theta(x\mid z)\big]}_{\text{reconstruction}}
+\;-\; \underbrace{\KL\!\big(q_\phi(z\mid x)\,\|\,p(z)\big)}_{\text{regulariser}} .
+\]
+Read it as a tug-of-war:
+\begin{itemize}[nosep,leftmargin=*]
+  \item the \textbf{reconstruction} term wants the decoded image to look like the
+  input (with a Gaussian decoder this becomes the familiar squared error);
+  \item the \textbf{KL} term pulls the encoder's $q_\phi(z\mid x)$ toward the
+  prior $p(z)=\mathcal{N}(0,I)$ --- it must not wander off, so that latents we
+  sample at generation time decode to something sensible. But it must not collapse
+  \emph{onto} the prior either, or the code carries no information about $x$.
+\end{itemize}
+Design choices make it concrete: $p(z)=\mathcal{N}(0,I)$ (easy to sample at
+generation), encoder outputs $(\mu_\phi(x),\sigma_\phi(x))$, decoder Gaussian with
+fixed variance \deck{DeepGenerativeModeling, slide 54}.
+
+\begin{notebox}[Where the ELBO comes from]
+The bound is not a guess. For \emph{any} encoder $q_\phi(z\mid x)$,
+\[
+\log p(x)=\underbrace{\E_{q_\phi}\!\Big[\log\tfrac{p_\theta(x,z)}{q_\phi(z\mid x)}\Big]}_{\text{ELBO}}
+   \;+\; \KL\!\big(q_\phi(z\mid x)\,\|\,p(z\mid x)\big).
+\]
+The second term is a KL divergence, so it is $\ge 0$; hence $\log p(x)\ge$ ELBO,
+with equality exactly when the encoder matches the true posterior $p(z\mid x)$.
+Maximising the ELBO therefore does double duty: it pushes up the data likelihood
+\emph{and} pulls the approximate posterior toward the true one.
+\end{notebox}
+
+\begin{notebox}[Worked example: KL between two Gaussians]
+The KL term has a closed form, which is why VAEs are practical. For a diagonal
+Gaussian posterior $\mathcal{N}(\mu,\sigma^2)$ against the standard normal,
+per latent dimension,
+\[
+\KL\!\big(\mathcal{N}(\mu,\sigma^2)\,\|\,\mathcal{N}(0,1)\big)
+   = \tfrac12\big(\sigma^2 + \mu^2 - 1 - \log\sigma^2\big).
+\]
+Sum over dimensions and you have the entire regulariser --- no sampling needed.
+\end{notebox}
+
+\subsection{The reparameterisation trick}
+
+There is a snag: training needs gradients to flow back through the \emph{random}
+sampling $z\sim q_\phi(z\mid x)$, and you cannot backpropagate through a random
+draw. The \textbf{reparameterisation trick} moves the randomness out of the way
+\deck{DeepGenerativeModeling, slide 56}:
+\[
+z = \mu_\phi(x) + \sigma_\phi(x)\odot\varepsilon, \qquad \varepsilon\sim\mathcal{N}(0,I).
+\]
+Now $z$ is a \emph{deterministic, differentiable} function of the encoder outputs
+$(\mu_\phi,\sigma_\phi)$ plus external noise $\varepsilon$, so gradients pass
+straight through to $\phi$. It is a small trick with outsized importance --- it is
+what makes VAEs trainable by ordinary backprop.
+
+\subsection{What VAEs are good at}
+
+VAEs give a \emph{smooth, structured} latent space: interpolating between two
+codes produces sensible in-between images, and sampling $z\sim\mathcal{N}(0,I)$
+generates new ones. In medical imaging they shine at \textbf{anomaly detection}
+(train only on healthy scans; a lesion reconstructs poorly, so high
+reconstruction error flags it), \textbf{denoising} (a VAE returns a whole
+\emph{family} of clean candidates, not one), \textbf{data augmentation}, and
+representation learning \deck{DeepGenerativeModeling, slides 57--58}. Their
+weakness: samples tend to be a little \emph{blurry}, because the Gaussian
+reconstruction loss averages over plausible outputs.
+
+% =====================================================================
+\section{Generative Adversarial Networks (GANs)}
+% =====================================================================
+
+A \textbf{GAN} learns to generate by staging a contest between two networks
+\deck{DeepGenerativeModeling, slides 38--43}:
+\begin{itemize}[nosep,leftmargin=*]
+  \item the \textbf{generator} $G$ maps a latent $z\sim\mathcal{N}(0,I)$ to a fake
+  image;
+  \item the \textbf{discriminator} $D$ tries to tell real images from $G$'s fakes,
+  outputting $D(\text{img})\to1$ for ``real'', $\to0$ for ``fake''.
+\end{itemize}
+They are trained against each other in a \textbf{min--max game}:
+\[
+\min_G \max_D\;\; \E_{x\sim p_{\text{data}}}\!\big[\log D(x)\big]
+   + \E_{z}\!\big[\log\big(1 - D(G(z))\big)\big].
+\]
+$D$ improves at spotting fakes; $G$ improves at fooling $D$; at the ideal
+equilibrium $G$'s samples are indistinguishable from real data. A short analysis
+shows that for a \emph{fixed} generator the optimal discriminator is
+$D^\star(x)=\dfrac{p_{\text{data}}(x)}{p_{\text{data}}(x)+p_g(x)}$, and plugging it
+back reveals that $G$ is minimising the \textbf{Jensen--Shannon divergence}
+between the generated and real distributions \deck{DeepGenerativeModeling, slides
+40--41}. No explicit likelihood, no reconstruction loss --- just ``make samples a
+critic cannot distinguish''.
+
+\paragraph{Why GANs are hard.} The adversarial game is a saddle-point problem,
+not a simple minimisation, and it can misbehave \deck{DeepGenerativeModeling,
+slides 42--44}:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{mode collapse} --- $G$ finds a few images that fool $D$ and emits
+  only those, losing diversity;
+  \item \textbf{vanishing gradients} --- if $D$ gets too good too fast, $G$ gets no
+  useful signal;
+  \item \textbf{non-convergence} --- the two can oscillate forever.
+\end{itemize}
+The standard stabilisers: \textbf{WGAN} / \textbf{WGAN-GP} (replace JS with the
+Wasserstein distance plus a gradient penalty), \textbf{spectral normalisation}
+on $D$, two-time-scale learning rates (TTUR), and EMA of the generator weights.
+
+\paragraph{Conditional GANs.} Feed both networks a condition $y$ ($G(z,y)$,
+$D(x,y)$) and you can \emph{control} the output: \textbf{pix2pix} (paired
+image-to-image translation) and \textbf{CycleGAN} (unpaired) are the workhorses
+for medical \textbf{modality translation} --- e.g.\ synthesising a CT from an MRI
+\deck{DeepGenerativeModeling, slide 45}. GANs give the sharpest samples of the
+three families, at the cost of the trickiest training.
+
+% =====================================================================
+\section{Diffusion models (a preview)}
+% =====================================================================
+
+\textbf{Diffusion models} are today's state of the art for image synthesis, and
+the deck frames them elegantly as a \emph{hierarchical VAE}
+\deck{DeepGenerativeModeling, slides 63--76}. Two processes:
+\begin{itemize}[nosep,leftmargin=*]
+  \item a fixed \textbf{forward process} that, over many steps, scales the signal
+  down and adds Gaussian noise, turning any image $x_0$ into pure noise $x_T\approx
+  \mathcal{N}(0,I)$ --- \emph{no} network involved;
+  \item a learned \textbf{reverse process} that undoes one noising step at a time,
+  a Gaussian $p_\theta(x_{t-1}\mid x_t)$ whose mean a network predicts.
+\end{itemize}
+The training objective is again an ELBO; the punchline is that the network's job
+reduces to \textbf{denoising} --- predict the clean $x_0$ (equivalently, the noise)
+from a noisy $x_t$, then take the analytically-exact small step back
+\deck{DeepGenerativeModeling, slide 76}. Generation runs the reverse chain from
+noise. Diffusion overtook GANs because it is \emph{stable to train} and produces
+\emph{high-quality, diverse} samples; the cost is slow, many-step sampling. It is
+also the most direct bridge back to this course: a diffusion model is literally a
+trained denoiser, the very Week-2 object, stacked across noise levels.
+
+\begin{notebox}[The one closed form that makes diffusion practical]
+Because each forward step just scales the signal and adds Gaussian noise, the
+composition of $t$ steps is \emph{also} Gaussian in closed form:
+$q(x_t\mid x_0)=\mathcal{N}\!\big(\sqrt{\bar\alpha_t}\,x_0,\,(1-\bar\alpha_t)I\big)$
+with $\bar\alpha_t=\prod_{s\le t}\alpha_s$. So during training you can jump
+straight to any noise level $t$ in one shot (no $t$-step simulation), and as
+$\bar\alpha_T\to0$ the image becomes pure noise --- which is why generation can
+start from $\mathcal{N}(0,I)$ and walk the reverse chain back to an image.
+\end{notebox}
+
+\subsection{Controllable generation}
+
+An unconditional model draws \emph{some} plausible image; clinically you usually
+want a \emph{specific} one. \textbf{Conditioning} feeds a label, a segmentation,
+or a low-quality scan to the generator --- conditional GANs ($G(z,y)$, $D(x,y)$),
+class- or image-conditioned diffusion --- and \textbf{classifier-free guidance}
+lets a diffusion model trade diversity for fidelity to the condition by mixing its
+conditional and unconditional predictions. This is what turns ``generate a brain
+MRI'' into ``generate the high-resolution MRI consistent with \emph{this}
+low-resolution one'': super-resolution, inpainting, and modality translation are
+all just \emph{conditional} sampling.
+
+% =====================================================================
+\section{The unifying thread: a generative model is a learned prior}
+% =====================================================================
+
+Step back and the whole course rhymes. In Week 2 the prior $p(x)$ was a Gibbs/MRF
+energy you designed by hand; in Week 3 you plugged it into reconstruction,
+$\hat x=\argmin_x \tfrac{1}{2\sigma^2}\norm{Gx-y}^2 + \lambda R(x)$. A VAE, GAN,
+or diffusion model is simply a \textbf{learned} $p(x)$, so it can replace the
+hand-built regulariser $R$:
+\begin{itemize}[nosep,leftmargin=*]
+  \item a VAE's negative log-likelihood as $R(x)$;
+  \item a GAN/normalising-flow density as $R(x)$;
+  \item a diffusion model's \emph{score} (gradient of $\log p$) plugged straight
+  into the gradient step.
+\end{itemize}
+This is the \textbf{plug-and-play} / \textbf{score-based reconstruction} family,
+currently the hottest area in accelerated-MRI and low-dose-CT reconstruction
+\deck{DeepGenerativeModeling, slides 77--78}. Same objective, learned prior.
+
+\begin{notebox}[Which family when?]
+\begin{tabular}{@{}lll@{}}
+\toprule
+Model & Strength & Typical medical use \\
+\midrule
+Autoencoder & simple, fast & denoising, features \\
+VAE & smooth latent, principled & anomaly detection, augmentation \\
+GAN & sharpest samples & modality translation, synthesis \\
+Diffusion & best quality, stable & synthesis, super-res, recon priors \\
+\bottomrule
+\end{tabular}
+\end{notebox}
+
+% =====================================================================
+\section{Applications --- and the trust question}
+% =====================================================================
+
+Generative models address three structural problems in medical imaging
+\deck{DeepGenerativeModeling, slide 45}: \emph{scarce labelled data}
+(augmentation, synthetic training sets for rare conditions), \emph{privacy}
+(share synthetic instead of real scans), and \emph{anomaly detection} (flag what
+the model finds improbable). Concrete uses: cross-modality synthesis (MRI$\to$CT),
+super-resolution of low-dose scans, inpainting, and learned priors for
+accelerated reconstruction.
+
+\begin{notebox}[Be honest about synthetic data]
+Generative power cuts both ways. GANs can \textbf{hallucinate} a realistic-looking
+lesion that was never there, or \emph{erase} a real one --- a clinical hazard, not
+a cosmetic flaw. Diffusion models can produce chest X-rays expert radiologists
+cannot distinguish from real, which is wonderful for augmentation and alarming for
+provenance. So generated images are evaluated with care: distribution-level
+metrics (\textbf{FID}, MS-SSIM) for realism, \emph{downstream task} performance
+for usefulness, and explicit checks for \emph{privacy leakage}. The rule of
+thumb: never trust a synthetic image to add information that was not in the data.
+\end{notebox}
+
+\subsection{How do you evaluate a generated image?}
+
+You cannot eyeball a thousand synthetic scans, and ``looks real'' is not a
+number. Three kinds of metric are used. \textbf{Distribution realism:}
+\textbf{FID} (Frechet Inception Distance) compares the feature statistics of the
+real and generated sets (lower is better), while \textbf{MS-SSIM} probes sample
+diversity (to catch mode collapse). \textbf{Downstream utility:} train a model on
+synthetic data and test it on \emph{real} data --- if performance holds, the
+samples carry genuine signal. \textbf{Privacy:} verify the generator has not
+memorised and reproduced individual training patients (a real medico-legal risk).
+The honest summary: a generative model is worth only as much as the task it
+\emph{provably} improves, measured on real held-out data.
+
+\begin{notebox}[Common pitfalls with generative models]
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Mode collapse (GANs):} the generator emits a few ``safe'' samples;
+  measure diversity, not just sharpness.
+  \item \textbf{Posterior collapse (VAEs):} the KL term wins and the latent is
+  ignored; anneal the KL weight or strengthen the decoder.
+  \item \textbf{Blurry VAE samples:} the Gaussian reconstruction loss averages
+  plausible outputs; a sharper likelihood or a VQ/adversarial term helps.
+  \item \textbf{Evaluation theatre:} a cherry-picked sample grid proves nothing ---
+  report FID / MS-SSIM and a downstream-task number on real data.
+\end{itemize}
+\end{notebox}
+
+\begin{keybox}[Do the notebook --- and finish Project 2]
+\texttt{notebooks/01\_generative\_models\_concepts.ipynb} (NumPy + Matplotlib)
+makes the ideas concrete without a GPU: a linear autoencoder $=$ PCA
+(reconstruct + a latent ``spectrum''), \textbf{generative sampling and
+interpolation} in a Gaussian latent space, and a small 2D \textbf{adversarial}
+demo showing a generator distribution chase a target while a discriminator tries
+to separate them. For real VAEs/GANs/diffusion, the MONAI Generative Models
+tutorials are the on-ramp. This week also hosts \textbf{Project 2} (brain-MRI
+segmentation, see \texttt{project\_segmentation.md}).
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{VAEs}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Kingma \& Welling (2013), \href{https://arxiv.org/abs/1312.6114}{\emph{Auto-Encoding Variational Bayes}} (the paper); Lilian Weng, \href{https://lilianweng.github.io/posts/2018-08-12-vae/}{\emph{From Autoencoder to Beta-VAE}}.
+  \item Arxiv Insights, \href{https://www.youtube.com/watch?v=9zKuYvjFFS8}{\emph{Variational Autoencoders}} (video); \href{https://www.statlect.com/fundamentals-of-probability/Kullback-Leibler-divergence}{KL closed form}.
+\end{itemize}
+
+\textbf{GANs}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Goodfellow et al.\ (2014), \href{https://arxiv.org/abs/1406.2661}{\emph{Generative Adversarial Nets}}; Lilian Weng, \href{https://lilianweng.github.io/posts/2017-08-20-gan/}{\emph{From GAN to WGAN}}.
+  \item Gulrajani et al.\ (2017), \href{https://arxiv.org/abs/1704.00028}{\emph{Improved Training of Wasserstein GANs}} (WGAN-GP).
+\end{itemize}
+
+\textbf{Diffusion}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Ho, Jain \& Abbeel (2020), \href{https://arxiv.org/abs/2006.11239}{\emph{Denoising Diffusion Probabilistic Models}}; Lilian Weng, \href{https://lilianweng.github.io/posts/2021-07-11-diffusion-models/}{\emph{What are Diffusion Models?}}.
+\end{itemize}
+
+\textbf{Medical generative modelling \& hands-on}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://github.com/Project-MONAI/GenerativeModels}{MONAI Generative Models} and the \href{https://github.com/Project-MONAI/tutorials/tree/main/generation}{generation tutorials} (VAEs, VQ-GANs, latent diffusion on 2D/3D scans).
+  \item \href{https://book.clinicalai.guide/chapters/07-generative-models.html}{The Clinical AI Field Guide --- Generative Models} (AE/VAE/GAN/diffusion with the trust question); \href{https://arxiv.org/pdf/2410.17664}{\emph{Deep Generative Models for 3D Medical Image Synthesis}} (2024 review).
+  \item Reconstruction priors: Jalal et al.\ (2021), \href{https://arxiv.org/abs/2108.01368}{\emph{Robust CS-MRI with Deep Generative Priors}}; Chung \& Ye (2022), \href{https://www.sciencedirect.com/science/article/pii/S1361841522001268}{\emph{Score-based diffusion for accelerated MRI}}.
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736
+DeepGenerativeModeling deck (VAE/GAN half), with attribution. For mentee use on
+this project; please do not redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

@@ -1,0 +1,501 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 3
+%  CT scan and MRI fundamentals  (physics + modelling intuition)
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or
+%  upload to Overleaf and hit Recompile.
+%      pdflatex MIC_CT_and_MRI_Fundamentals.tex
+%      pdflatex MIC_CT_and_MRI_Fundamentals.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 decks (XrayCT, MRI), with
+%  attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{\textbf{CT and MRI Fundamentals}\\[2pt]
+\large The physics and modelling intuition behind the scanner\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 3}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+Last block you learned to \emph{reconstruct} an image from measurements
+$y=Gx+n$ --- but we treated the operator $G$ as a black box (``$G$ is the Radon
+transform for CT, the Fourier transform for MRI''). This chapter opens the black
+box. It explains \emph{where} those operators come from physically: how an X-ray
+beam turns tissue into a sinogram, and how a spinning proton turns tissue into
+$k$-space. The goal is \textbf{intuition}, not a physics exam --- enough that the
+words ``attenuation'', ``Radon'', ``Larmor'', ``$T_1$/$T_2$'', and ``$k$-space''
+become things you \emph{understand} rather than memorise. Keep the slide decks
+\deck{XrayCT} and \deck{MRI} open; the \deck{...} tags point at the exact slide.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{Why this chapter exists}
+% =====================================================================
+
+A scanner does not hand you a picture of the body. It hands you
+\emph{measurements} that are some physical transformation of the body, and the
+picture is computed afterwards. In the reconstruction block we wrote that as
+$y = Gx + n$ and showed how to invert it with a prior. The two transformations
+that matter most in the clinic are:
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Modality & True image $x$ & Measurement $y$ & Operator $G$ \\
+\midrule
+CT  & map of X-ray \emph{attenuation} & projections (\emph{sinogram}) & Radon transform \\
+MRI & map of \emph{magnetisation} (proton density, $T_1$, $T_2$) & \emph{$k$-space} samples & Fourier transform \\
+\bottomrule
+\end{tabular}
+\end{center}
+Understanding $G$ is what lets you reason about image quality, artefacts, dose,
+scan time, and when a clever reconstruction can rescue bad data. So: Part~I is
+CT (a story about \emph{counting photons}); Part~II is MRI (a story about
+\emph{listening to spins}).
+
+% =====================================================================
+\part*{Part I -- Computed Tomography: counting photons}
+\addcontentsline{toc}{section}{PART I -- Computed Tomography}
+% =====================================================================
+
+% ---------------------------------------------------------------------
+\section{What CT measures: attenuation and Hounsfield units}
+% ---------------------------------------------------------------------
+
+An X-ray is high-energy light. As it crosses tissue, some photons are absorbed
+or scattered out of the beam; dense tissue (bone) removes more, soft tissue
+removes less, air almost none. The local ``how strongly does this remove
+photons'' number is the \textbf{linear attenuation coefficient} $A(x)$ (often
+written $\mu$). CT's job is to recover the 2D/3D \emph{map} of $A$ inside the
+patient \deck{XrayCT, slides 19--20}.
+
+Raw $A$ values depend on the beam energy and are awkward to compare, so they are
+rescaled to \textbf{Hounsfield Units} (HU) by a linear transform anchored at two
+references: water $=0$\,HU and air $=-1000$\,HU. On that scale soft tissue sits
+near $0$, fat is negative, bone is several hundred to a few thousand, metal even
+higher. The clinic leans on this hard: an adrenal nodule below $\sim 10$\,HU is
+mostly fat and almost certainly benign \deck{XrayCT, slide 19}. (See
+\href{https://radiopaedia.org/articles/hounsfield-unit}{Radiopaedia: Hounsfield
+unit}.)
+
+% ---------------------------------------------------------------------
+\section{Beer's law: from a thin slab to an exponential}
+% ---------------------------------------------------------------------
+
+The physics linking tissue to measurement is \textbf{Beer's law} (Beer--Lambert)
+\deck{XrayCT, slides 22--26}. Consider a thin slab between $x$ and $x+\Delta x$.
+If $N(x)$ photons enter and the attenuation there is $A(x)$, the fraction
+removed in the slab is $\approx A(x)\,\Delta x$ (true only for an infinitesimal
+slab). Writing the beam energy as $I(x)=E\,N(x)$,
+\[
+\Delta I(x) = -I(x)\,A(x)\,\Delta x
+\quad\Longrightarrow\quad
+\frac{dI}{dx} = -A(x)\,I(x).
+\]
+That is a first-order ODE; integrating along a ray from $x_0$ to $x_1$ gives the
+integral form of \textbf{Beer's law}:
+\[
+\boxed{\;I_1 = I_0 \exp\!\left(-\int_{x_0}^{x_1} A(x)\,dx\right).\;}
+\]
+Take a logarithm and the messy exponential becomes a clean \emph{line integral}:
+\[
+-\log\!\frac{I_1}{I_0} = \int A(x)\,dx.
+\]
+This is the single most important equation in CT: \textbf{what the detector
+measures (after a log) is the sum of attenuation along the ray.}
+
+\begin{notebox}[Worked example: Beer's law and a Hounsfield number]
+Suppose a $2$\,cm path of soft tissue has attenuation
+$\mu\approx 0.20\,\mathrm{cm}^{-1}$ at the scanner's effective energy. Beer's law
+says the beam keeps $I_1/I_0=e^{-0.20\times 2}=e^{-0.4}\approx 0.67$ --- a third
+of the photons are gone --- and the detector reports $-\log(I_1/I_0)=0.4$. To turn
+a reconstructed $\mu$ into a Hounsfield number, rescale relative to water
+($\mu_{\text{water}}\approx 0.19\,\mathrm{cm}^{-1}$):
+\[
+\mathrm{HU} = 1000\,\frac{\mu - \mu_{\text{water}}}{\mu_{\text{water}} - \mu_{\text{air}}} .
+\]
+Water gives $0$, air gives $-1000$, dense bone ($\mu\approx 0.38$) lands near
+$+1000$. Because the scale is \emph{relative} to water, the same tissue scanned
+at a different tube voltage yields a slightly different HU --- which is why
+quantitative CT needs careful calibration.
+\end{notebox}
+
+\begin{keybox}[The crucial limitation]
+One X-ray gives you \emph{one number} --- the total attenuation along one line
+\deck{XrayCT, slide 28}. It cannot tell you \emph{where} along the ray the
+absorption happened (a little bone near the entry looks the same as a little
+bone near the exit). One projection is hopeless; you must fire rays from
+\emph{many angles} and combine them. That combination is the whole idea of
+\emph{tomography} (Greek \emph{tomos}, ``slice'').
+\end{keybox}
+
+\begin{notebox}[Do the toy puzzle once]
+The $3\times3$ block puzzle \deck{XrayCT, slides 29--30} --- recover a grid of
+$0/1$ blocks from its row sums and column sums --- is worth solving by hand. You
+will feel both the \emph{power} of tomography (a few directions kill most
+possibilities) and its \emph{ambiguity} (some patterns stay indistinguishable
+until you add another angle). That tension is exactly why real CT needs roughly
+$\pi/2 \times$ (radius in pixels) projections \deck{XrayCT, slide 81}.
+\end{notebox}
+
+% ---------------------------------------------------------------------
+\section{The Radon transform and the sinogram}
+% ---------------------------------------------------------------------
+
+The \textbf{Radon transform} bundles ``all line integrals at all angles''
+\deck{XrayCT, slides 45--47}. For an image $f(x,y)$ and a line parameterised by
+its signed distance $t$ from the origin and its angle $\theta$,
+\[
+Rf(t,\theta) = \int_{\text{line}(t,\theta)} f .
+\]
+For a fixed angle $\theta$ you get a 1D \emph{projection}; stack the projections
+for all angles side by side and you get a 2D image called the \textbf{sinogram}
+--- the raw CT data (a single point in the body traces out a sine curve in it,
+hence the name). The transform is \emph{linear}
+($R(af+bg)=aRf+bRg$), which is exactly why CT reconstruction is a \emph{linear}
+inverse problem and our $y=Gx+n$ machinery applies.
+
+% ---------------------------------------------------------------------
+\section{Back-projection blurs --- and the Fourier Slice fix}
+% ---------------------------------------------------------------------
+
+The naive way to invert is \textbf{back-projection}: take each projection value
+and smear it back uniformly along the ray it came from, summing over all angles
+\deck{XrayCT, slides 54--60}. Intuitively this ``votes'' energy back into the
+image where it might have come from. It is tempting to hope it returns $f$. It
+does not: back-projection of a Radon transform \textbf{blurs} the image. A single
+bright point becomes a star of streaks; a sharp blob becomes a smudge with a
+characteristic $1/r$ halo \deck{XrayCT, slides 55--57}.
+
+The cure is a small miracle linking the Radon and Fourier transforms.
+
+\begin{keybox}[Central Slice (Fourier Slice) Theorem]
+The 1D Fourier transform of the projection at angle $\theta$ equals a radial
+\emph{slice}, at that same angle $\theta$, through the 2D Fourier transform of
+the image \deck{XrayCT, slides 61--66}.
+\end{keybox}
+
+So projections at every angle, Fourier-transformed, fill the entire 2D Fourier
+plane of the image one spoke at a time; an inverse 2D FT would then return $f$
+exactly \deck{XrayCT, slide 67}. Working that inverse transform out in polar
+coordinates spits out a Jacobian factor of $\abs{w}$ (the radial frequency)
+\deck{XrayCT, slides 68--72} --- and that factor is the punchline.
+
+\begin{keybox}[Filtered Back-Projection (FBP)]
+Reconstruct by (1) \textbf{filtering} each projection so its spectrum is
+multiplied by the \emph{ramp} $\abs{w}$, then (2) back-projecting the filtered
+projections. The ramp exactly cancels the $1/r$ blur, so FBP of a Radon
+transform returns the original image:
+\[
+f = \text{BackProject}\big(\text{Filter}_{\abs{w}}(Rf)\big).
+\]
+\end{keybox}
+
+The ramp $\abs{w}$ damps low frequencies (the blur) and boosts high frequencies
+(the edges) \deck{XrayCT, slide 72}. FBP is fast, analytic, and for decades was
+\emph{the} CT algorithm.
+
+\paragraph{The catch: noise.} Real data is noisy, and noise lives at high
+frequencies --- exactly where the ramp amplifies hardest \deck{XrayCT, slides
+73--74}. A pure ramp turns a slightly noisy sinogram into a snowstorm. So the
+ramp is rolled off at high frequency: use $A(w)=\abs{w}\,B(w)$ with $B$ near $1$
+at the origin and tapering to $0$ past a cutoff $L$. The named windows ---
+\textbf{Ram--Lak} (sharp), \textbf{Shepp--Logan}, \textbf{cosine},
+\textbf{Hamming} --- trade resolution against noise \deck{XrayCT, slides 75--77}.
+There is no free lunch: with noisy data you do not reconstruct perfectly, only
+sensibly.
+
+% ---------------------------------------------------------------------
+\section{CT as a linear system, and model-based reconstruction}
+% ---------------------------------------------------------------------
+
+FBP assumes clean, densely-sampled, parallel-beam data. When that breaks ---
+few angles, metal, very low dose --- go back to the algebraic picture
+\deck{XrayCT, slides 81--85}: write CT as $Ax=b$, where $x$ is the vectorised
+attenuation image, $b=-\log(I_1/I_0)$ is the log-data, and each row of $A$ traces
+one beam's path through the pixels. Two readings of $A$ tie everything together:
+$A$ maps image\,$\to$\,data (\emph{forward projection}), and $A^{\!\top}$ maps
+data\,$\to$\,image and \emph{is exactly back-projection} --- the same adjoint
+$G^{\!\top}$ from the reconstruction gradient $G^{\!\top}(Gx-y)$.
+
+What noise model for $b$? The photon counts are \textbf{Poisson} (the physics of
+counting) and the electronics add \textbf{Gaussian} thermal noise; in practice
+$b$ is often modelled as Gaussian \deck{XrayCT, slide 84}. Drop that into the
+MAP objective from the reconstruction block,
+\[
+\hat{x} = \argmin_x \tfrac{1}{2\sigma^2}\norm{Ax-b}_2^2 + \lambda R(x),
+\]
+solved by gradient descent or by \textbf{ART} (the Kaczmarz row-projection
+method, \deck{XrayCT, slides 85--92}), and you have \emph{iterative /
+model-based CT} --- what modern low-dose and sparse-view scanners use, where the
+prior $R$ buys back the information the missing dose did not provide.
+
+% ---------------------------------------------------------------------
+\section{Modelling intuition: what CT is good and bad at}
+% ---------------------------------------------------------------------
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Great at:} bone, lung, acute bleeds, anything with strong
+  density contrast; it is fast (seconds) and geometrically faithful.
+  \item \textbf{Dose is the cost.} Photons are ionising radiation. SNR grows
+  like $\sqrt{\text{dose}}$ (Poisson), so halving noise costs $4\times$ the dose
+  --- the central ethical trade-off, and the reason model-based/AI reconstruction
+  matters.
+  \item \textbf{Artefacts you should recognise:} \emph{beam hardening} (the
+  polychromatic beam's low-energy photons are absorbed first, biasing $b$ away
+  from a clean line integral --- this is the compound-Poisson story);
+  \emph{metal} streaks; \emph{limited-angle / sparse-view} streaks (assignment
+  \texttt{a2} explores this directly); \emph{motion} blur.
+\end{itemize}
+
+% =====================================================================
+\part*{Part II -- Magnetic Resonance Imaging: listening to spins}
+\addcontentsline{toc}{section}{PART II -- Magnetic Resonance Imaging}
+% =====================================================================
+
+% ---------------------------------------------------------------------
+\section{Spins, $B_0$, and net magnetisation}
+% ---------------------------------------------------------------------
+
+The body is mostly water, so it is full of hydrogen nuclei (protons), each a
+tiny spinning magnet \deck{MRI, slides 22--24}. Normally they point every which
+way and cancel. Put the patient in a strong static field
+$B_0=\langle 0,0,b_0\rangle$ (clinically $1.5$--$3$\,T) and a slight majority
+line up with it, giving a net \textbf{magnetisation} $M$ along $B_0$. Everything
+in MRI is the story of how we tip, twist, and listen to $M$. (Intuition:
+\href{https://larsonlab.github.io/MRI-education-resources/Spin\%20Physics.html}{UCSF
+Spin Physics notes}.)
+
+% ---------------------------------------------------------------------
+\section{The Bloch equations: precession, $T_1$, $T_2$}
+% ---------------------------------------------------------------------
+
+The motion of $M$ in a field $B$ is governed by the \textbf{Bloch equations}
+\deck{MRI, slides 24--25}, which have three ingredients:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{precession:} $M$ rotates around the field (the $\gamma\,M\times B$
+  term);
+  \item \textbf{longitudinal ($T_1$) relaxation:} the component along $B_0$
+  recovers towards equilibrium $m_{\mathrm{eq}}$;
+  \item \textbf{transverse ($T_2$) relaxation:} the in-plane component decays.
+\end{itemize}
+Without RF, in the rotating frame, the relaxation solutions are simply
+\[
+m_{xy}(t)=m_{xy}(0)\,e^{-t/T_2}, \qquad
+m_z(t)=m_z(0)\,e^{-t/T_1}+m_{\mathrm{eq}}\big(1-e^{-t/T_1}\big),
+\]
+(\href{https://larsonlab.github.io/MRI-education-resources/Bloch\%20Equation.html}{UCSF
+Bloch equation notes}). The equilibrium $m_{\mathrm{eq}}$ is proportional to
+\textbf{proton density}; $T_1$ and $T_2$ depend on the tissue's biochemical
+environment. \textbf{That is the whole reason MRI sees soft-tissue contrast CT
+cannot}: three independent knobs (PD, $T_1$, $T_2$) instead of one (density).
+
+% ---------------------------------------------------------------------
+\section{Larmor precession and tissue contrast}
+% ---------------------------------------------------------------------
+
+In a static field alone, $M$ precesses about $z$ at the \textbf{Larmor frequency}
+\deck{MRI, slides 27--29}
+\[
+\omega_0 = \gamma b_0,
+\]
+where $\gamma\approx 42.6$\,MHz/T for water protons; at $3$\,T that is about
+$128$\,MHz --- radio frequency, hence ``RF''. Tissues differ in $T_1$ (fat short,
+CSF long) and $T_2$ (solids short, fluids long) \deck{MRI, slides 30--32}. By
+choosing \emph{when} to excite and measure, you weight the image towards PD,
+$T_1$, or $T_2$ contrast --- the radiologist's main dials. (Reference values:
+\href{https://labs.dgsom.ucla.edu/file/418603/M219_Lecture06_Bloch_Relaxation_II.pdf}{UCLA
+M219 notes}.)
+
+% ---------------------------------------------------------------------
+\section{Getting a signal out: RF pulses and resonance}
+% ---------------------------------------------------------------------
+
+A measurement problem: the $T_1$ information lives in $m_z$, the component
+\emph{along} $B_0$, but Faraday induction (our only readout) senses only a
+\emph{changing transverse} field \deck{MRI, slide 33}. So we must first tip $M$
+into the transverse plane. Apply a small oscillating field $B_1(t)$ in the
+$xy$-plane \emph{at exactly the Larmor frequency} \deck{MRI, slides 38--43}. At
+\textbf{resonance} the tiny $B_1$ ($\sim 30\,\mu$T) stays in lock-step with the
+precession and, over a short pulse, walks $M$ away from the $z$-axis. A pulse of
+the right length is a \textbf{$90^\circ$ pulse}: it flips $m_z$ fully into the
+transverse plane, where it precesses and induces a measurable current. (Working
+in a frame rotating at $\omega_0$ turns this from a blur of fast oscillations
+into a simple rotation --- the ``rotating frame'' trick \deck{MRI, slide 40}.)
+
+% ---------------------------------------------------------------------
+\section{Spatial encoding and $k$-space}
+% ---------------------------------------------------------------------
+
+So far every voxel sings the same note, so we would get one number for the whole
+slice. The genius of MRI is to make \emph{position} controllable with
+\textbf{gradient} fields that vary in space \deck{MRI, slides 46--49}:
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \textbf{Slice selection:} a $z$-gradient during the RF pulse means only
+  one slab is at resonance and gets excited.
+  \item \textbf{Phase encoding:} a brief $y$-gradient makes each row precess at a
+  different rate, stamping a $y$-dependent phase $e^{\,iG_Y y\,t_Y}$.
+  \item \textbf{Frequency encoding:} an $x$-gradient during readout makes each
+  column precess at a different frequency, adding $e^{\,iG_X x\,t_X}$.
+\end{enumerate}
+Summing over the slice, the received signal is \deck{MRI, slide 50}
+\[
+s(t_Y,t_X)=\iint N_{xy}(x,y)\,e^{\,iG_Y y\,t_Y}\,e^{\,iG_X x\,t_X}\,dx\,dy,
+\]
+which is exactly the \textbf{2D Fourier transform} of the slice, sampled at the
+frequency coordinates $(G_Y t_Y, G_X t_X)$.
+
+\begin{keybox}[$k$-space]
+MRI does not measure the image; it measures the image's \textbf{Fourier
+transform}, point by point. That Fourier domain is \textbf{$k$-space}. Each
+phase-encode step fills one line; repeat to fill the plane; the image is the
+\textbf{inverse 2D FT} of $k$-space (keep the magnitude --- which is why MRI
+noise is Rician). The \emph{centre} of $k$-space carries contrast and
+brightness; the \emph{edges} carry fine detail and sharp boundaries.
+(\href{https://mriquestions.com/what-is-k-space.html}{MRIquestions: k-space}.)
+\end{keybox}
+
+% ---------------------------------------------------------------------
+\section{Why MRI is slow --- and modelling intuition}
+% ---------------------------------------------------------------------
+
+MRI is \emph{slow} because $k$-space is filled line by line, each line needing
+its own excitation and relaxation wait. The obvious shortcut --- \textbf{skip
+lines} (under-sample $k$-space) --- speeds the scan but a naive inverse FFT then
+produces \emph{aliasing}. Recovering a clean image from under-sampled $k$-space
+is, once more, an ill-posed inverse problem cured by a prior: this is
+\textbf{compressed-sensing MRI} (Lustig, Donoho \& Pauly, 2007).
+
+\begin{notebox}[How $k$-space sampling sets field-of-view and resolution]
+$k$-space is the Fourier domain, so the sampling theorem applies directly. The
+\emph{spacing} $\Delta k$ between acquired samples fixes the
+\textbf{field-of-view}, $\mathrm{FOV}=1/\Delta k$: sample too coarsely and the
+FOV shrinks below the object, so it wraps around --- exactly the \emph{aliasing}
+(fold-over) artefact. The \emph{extent} $k_{\max}$ you reach fixes the
+\textbf{resolution}, $\Delta x \approx 1/(2k_{\max})$: the high-frequency edges
+of $k$-space buy fine detail. So under-sampling to save time either shrinks the
+FOV (skip lines $\Rightarrow$ aliasing) or trims $k_{\max}$ (stop early
+$\Rightarrow$ blur); compressed sensing's job is to recover the missing samples
+with a sparsity prior so you keep both FOV and resolution.
+\end{notebox}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Great at:} soft-tissue contrast (brain, cartilage, tumours),
+  no ionising radiation, many contrasts from one anatomy.
+  \item \textbf{Costs:} slow, expensive, loud; sensitive to motion (long scans);
+  metal is a hard contraindication.
+  \item \textbf{Artefacts you should recognise:} \emph{aliasing} (under-sampling
+  / small field-of-view), \emph{motion} ghosts (because $k$-space is filled over
+  time), \emph{$T_2^\ast$} signal dropout near air/bone from field
+  inhomogeneity, \emph{chemical-shift} and \emph{susceptibility} artefacts.
+\end{itemize}
+
+% =====================================================================
+\section{CT vs MRI, and the bridge back to reconstruction}
+% =====================================================================
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & CT & MRI \\
+\midrule
+Physical signal     & X-ray attenuation     & proton magnetisation \\
+Measurement domain  & sinogram (Radon)      & $k$-space (Fourier) \\
+Contrast from       & density (1 knob)      & PD, $T_1$, $T_2$ (3 knobs) \\
+Noise               & Poisson + Gaussian    & Rician (magnitude) \\
+Main cost           & ionising dose         & scan time \\
+Fast inverse        & filtered back-projection & inverse FFT \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Different physics, same mathematics. Both hand you $y=Gx+n$ with a \emph{linear}
+$G$ (Radon or Fourier), and both are reconstructed with the MAP objective you
+already know:
+\[
+\hat{x}=\argmin_x \tfrac{1}{2\sigma^2}\norm{Gx-y}_2^2 + \lambda R(x).
+\]
+This chapter just told you what $G$ and the noise really are. For the inversion
+itself --- ill-posedness, Tikhonov vs TV, gradient descent, ART --- return to the
+\texttt{week\_1.5\_to\_3} handbook and its deblurring notebook; the
+\texttt{week\_3} notebook here makes the CT (Radon/FBP) and MRI ($k$-space)
+operators concrete and runnable.
+
+\begin{keybox}[Do the notebook]
+\texttt{notebooks/01\_ct\_radon\_fbp\_and\_mri\_kspace.ipynb} builds the Radon
+transform of a phantom (the sinogram), reconstructs it with plain vs filtered
+back-projection, degrades it by dropping view angles, and then under-samples MRI
+$k$-space to watch aliasing appear. Run it, then break it.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{CT: attenuation \& Beer's law}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://radiopaedia.org/articles/beer-lambert-law-1}{Radiopaedia --- Beer--Lambert law} and \href{https://radiopaedia.org/articles/hounsfield-unit}{Hounsfield unit} (short, clinical).
+  \item \href{https://www.ncbi.nlm.nih.gov/books/NBK547721/}{StatPearls --- Hounsfield Unit}; \href{https://www.ncbi.nlm.nih.gov/books/NBK232484/}{NCBI --- X-ray Computed Tomography (chapter 3)}.
+\end{itemize}
+
+\textbf{CT: Radon, Fourier Slice, FBP}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://www.youtube.com/watch?v=65LMqRUaGo0}{\emph{CT Reconstruction: Radon, Fourier Slice Theorem \& Backprojection}} (video, timestamped).
+  \item \href{https://howradiologyworks.com/filtered-backprojection-fbp-illustrated-guide-for-radiologic-technologists/}{Filtered Back-Projection --- illustrated guide}.
+  \item Kak \& Slaney, \href{https://www.slaney.org/pct/}{\emph{Principles of Computerized Tomographic Imaging}} --- free; chapter 3 is the classic.
+\end{itemize}
+
+\textbf{MRI: spins, Bloch, $T_1$/$T_2$}
+\begin{itemize}[nosep,leftmargin=*]
+  \item UCSF \href{https://larsonlab.github.io/MRI-education-resources/Spin\%20Physics.html}{Spin Physics} and \href{https://larsonlab.github.io/MRI-education-resources/Bloch\%20Equation.html}{Bloch Equation} notes (with a live simulator).
+  \item Allen Q.\ Ye --- \href{https://www.youtube.com/watch?v=djAxjtN_7VE}{\emph{MRI from picture to proton}} (video); Stanford \href{https://web.stanford.edu/class/rad226a/Lectures/Lecture2-2017-Classical-MR.pdf}{Rad226 classical-MR lecture}.
+\end{itemize}
+
+\textbf{MRI: $k$-space \& reconstruction}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://mriquestions.com/what-is-k-space.html}{MRIquestions --- What is k-space?} and UCSF \href{https://larsonlab.github.io/MRI-education-resources/K-space.html}{Principles of MRI: K-space}.
+  \item \href{https://www.youtube.com/watch?v=hlTWxwYNmwY}{\emph{K-space MRI explained}} (video); Lustig, Donoho \& Pauly (2007), \href{https://onlinelibrary.wiley.com/doi/10.1002/mrm.21391}{\emph{Sparse MRI}}.
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736 decks,
+with attribution. For mentee use on this project; please do not redistribute the
+bundled decks outside it.
+\end{center}
+
+\end{document}

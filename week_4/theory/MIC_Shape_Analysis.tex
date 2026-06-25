@@ -1,0 +1,486 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 4
+%  Statistical Shape Analysis  (Procrustes, GPA, shape PCA)
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or
+%  upload to Overleaf and hit Recompile.
+%      pdflatex MIC_Shape_Analysis.tex
+%      pdflatex MIC_Shape_Analysis.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 ShapeAnalysis deck, with
+%  attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\Tr}{Tr}
+
+\title{\textbf{Statistical Shape Analysis}\\[2pt]
+\large Procrustes alignment, the mean shape, and modes of variation\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 4}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+So far we have produced and cleaned up \emph{images}. This week we change the
+question: given the \emph{outline of a structure} (a bone, a ventricle, a hand),
+how do we describe its \emph{shape} mathematically --- the typical shape of a
+population, and the ways it varies? The answer is a beautiful little pipeline:
+represent each shape as a set of corresponding points, remove the boring
+differences (position, size, rotation) with \textbf{Procrustes alignment},
+compute a \textbf{mean shape}, and read off the \textbf{modes of variation} with
+PCA. Read this start to finish, keep the \deck{ShapeAnalysis} deck open (the
+\deck{...} tags point at the slide), and do the notebook --- it builds the whole
+pipeline in NumPy in about a page of code.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{Why shape, and why it is not obvious}
+% =====================================================================
+
+Shape carries real medical and scientific information. Why do younger people get
+hip and shoulder pain? One striking study X-ray-CT-scanned 300 specimens
+spanning 400 million years of evolution and tracked how the \emph{shape} of the
+thigh-bone neck and the shoulder gap changed --- a thicker femoral neck (evolved
+to carry our upright weight) correlates with more arthritis
+\deck{ShapeAnalysis, slides 2--5}. The same toolkit measures how an organ's
+shape differs between a healthy and a diseased population, classifies patients
+by the shape of a brain structure, and supplies \emph{shape priors} that keep a
+segmentation realistic \deck{ShapeAnalysis, slides 17--18, 54}.
+
+But ``shape'' is subtler than it sounds. In everyday English a shape is just an
+outline. In geometry we want something that \emph{ignores where the object is,
+how big it is, and how it is turned} \deck{ShapeAnalysis, slides 8--10}:
+
+\begin{keybox}[What a shape is (Kendall)]
+A \textbf{shape} is all the geometric information that remains after we filter
+out \emph{location}, \emph{scale}, and \emph{rotation}. Two outlines have the
+same shape if one can be turned into the other by a \textbf{similarity
+transform} --- a translation, a rotation, and a uniform (isotropic) scaling. A
+shape is therefore an \textbf{equivalence class} of point configurations under
+the similarity group. (This view is due to David Kendall, who founded
+statistical shape analysis.)
+\end{keybox}
+
+Everything this week follows from taking that definition seriously: to do
+statistics on shapes, we must first quotient out translation, scale, and
+rotation.
+
+% =====================================================================
+\section{Representing a shape: landmarks and pointsets}
+% =====================================================================
+
+We represent each shape by a \textbf{pointset} --- an ordered set of
+\textbf{landmark} points placed at \emph{corresponding} locations across all the
+shapes in the dataset \deck{ShapeAnalysis, slides 22--27}. ``Corresponding''
+matters: the 7th point must mean the same anatomical place (say, the thumb tip)
+on every hand. Landmarks come in flavours --- anatomical (a biologically
+meaningful spot), mathematical (a curvature extremum), and pseudo/semi-landmarks
+(evenly spaced filler along a curve) --- but for us they are just an ordered list
+of points.
+
+Fix an ordering and stack the coordinates into one long vector. For $N$ points in
+$D$ dimensions,
+\[
+z = [\,x_1,y_1,\;x_2,y_2,\;\dots,\;x_N,y_N\,]^{\!\top} \in \R^{DN}
+\qquad(\text{here } D=2).
+\]
+So a single shape is one point in a $DN$-dimensional space, and a dataset of $M$
+shapes is a cloud of $M$ points there. That picture --- a cloud of shapes in a
+high-dimensional space --- is the whole game; the mean shape is its centre and
+the modes of variation are its principal axes \deck{ShapeAnalysis, slide 21}.
+
+\subsection{The correspondence problem (the part that is actually hard)}
+
+Almost every difficulty in shape analysis hides in that one word,
+\emph{corresponding}. All the mathematics below assumes that point $n$ on shape
+$A$ and point $n$ on shape $B$ mark the \emph{same} anatomical location. Getting
+that right is the real work:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Anatomical landmarks} (a bone process, an organ apex) are
+  reliable but few, and usually need an expert to place by hand.
+  \item \textbf{Mathematical landmarks} (curvature extrema, points of high
+  bending) can be detected automatically but tend to drift under noise.
+  \item \textbf{Semi-landmarks} (``pseudo-landmarks'') are extra points spread
+  evenly along a curve or surface between the true landmarks. They carry no
+  inherent meaning, so during alignment they are allowed to \emph{slide} along
+  the boundary (minimising bending energy or Procrustes distance); otherwise an
+  arbitrary choice of parameterisation would masquerade as real shape variation.
+\end{itemize}
+If the correspondence is wrong, every later number --- the mean, the modes, the
+$p$-value in a population study --- is quietly wrong too. Treat landmarking as
+data \emph{collection}, not preprocessing.
+
+\subsection{Centroid size: the one notion of ``size'' that behaves}
+
+We will repeatedly need a single scalar for the ``size'' of a pointset. The
+standard choice is \textbf{centroid size}: with the centroid
+$\bar z = \tfrac1N\sum_n z_n$,
+\[
+\mathrm{CS}(z) = \sqrt{\textstyle\sum_{n=1}^{N}\norm{z_n - \bar z}^2}.
+\]
+It is (to first order) the only size measure \emph{uncorrelated} with shape
+under small isotropic landmark noise, which is why geometric morphometrics
+standardises every shape to unit centroid size before doing any statistics.
+Rescaling a centred pointset to $\mathrm{CS}=1$ is exactly the ``unit norm''
+projection used throughout this chapter.
+
+% =====================================================================
+\section{Shape space and degrees of freedom}
+% =====================================================================
+
+The raw vector $z$ has $DN$ numbers, but most of them encode things we want to
+ignore. Counting the redundancy is illuminating \deck{ShapeAnalysis, slides
+30--33}:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Translation} is $D$ numbers. Kill it by moving each pointset's
+  \emph{centroid} to the origin, $\sum_n z_n = 0$. That confines every shape to
+  a \emph{hyperplane} through the origin.
+  \item \textbf{Scale} is $1$ number. Kill it by fixing the overall ``size''
+  (the vector norm, a.k.a.\ \emph{centroid size}) to $1$, $\sum_n\norm{z_n}^2=1$.
+  That confines every shape to a \emph{hypersphere}.
+  \item \textbf{Rotation} is $D(D-1)/2$ numbers ($1$ in 2D, $3$ in 3D). Kill it
+  by rotationally aligning shapes to a common reference.
+\end{itemize}
+
+The hyperplane $\cap$ hypersphere (translation- and scale-normalised pointsets)
+is the \textbf{preshape space}; quotient out rotation as well and you reach
+\textbf{Kendall's shape space} \deck{ShapeAnalysis, slide 33}. The practical
+upshot: a shape has \emph{far fewer} genuine degrees of freedom than its $DN$
+coordinates suggest, which is exactly why a low-dimensional PCA model will work
+later.
+
+\begin{notebox}[Reading note]
+Slides 30--33 carry the degrees-of-freedom algebra ($z_n\in\R^{D}$, the
+$\R^{DN}$ vector, $\sum_n z_n=0$, $\sum_n\norm{z_n}^2=1$), but the copy-pasteable
+text on those slides is mangled --- the PDF stored the symbols as math glyphs.
+The \textbf{slide images are correct}; use them (and this chapter) for the
+equations.
+\end{notebox}
+
+% =====================================================================
+\section{Measuring shape distance}
+% =====================================================================
+
+How different are two shapes? We cannot just subtract their coordinates --- one
+might merely be shifted, bigger, or rotated. The \textbf{shape distance} first
+optimally removes those nuisances, then measures what is left
+\deck{ShapeAnalysis, slide 34}. For two preshapes $z_1, z_2$,
+\[
+\Delta^2(z_1,z_2) = \min_{\theta}\; \big\| z_1 - \mathrm{Rotate}(z_2;\theta)\big\|^2 .
+\]
+Two flavours of the leftover distance are used: the \textbf{geodesic} (great-
+circle) distance along the hypersphere, or --- the workhorse --- its Euclidean
+\emph{chord} approximation, which gives the \textbf{Procrustes distance}. For the
+small shape differences typical in medical data the two agree closely, and the
+Euclidean version is what makes the algebra below tractable.
+
+% =====================================================================
+\section{Procrustes alignment: removing the nuisances}
+% =====================================================================
+
+\textbf{Procrustes analysis} aligns one shape to another by undoing translation,
+scale, and rotation \deck{ShapeAnalysis, slides 35--39}. (The name is a grim
+Greek joke: Procrustes was a bandit who ``fitted'' guests to his iron bed by
+stretching or chopping them.) The recipe:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Location:} subtract each pointset's centroid (centroid $\to$ origin).
+  \item \textbf{Scale:} rescale each pointset to a fixed norm.
+  \item \textbf{Rotation:} rotate one onto the other (next section).
+\end{enumerate}
+The residual Euclidean distance between the optimally transformed shapes is the
+Procrustes distance.
+
+\paragraph{The Cootes (1995) least-squares form.} For two pointsets not yet in
+preshape space, Cootes et al.\ solve for translation, scale, and rotation
+\emph{jointly} \deck{ShapeAnalysis, slides 37--39}:
+\[
+\min_{\theta,T,s}\;\sum_{n=1}^{N}\big\| z_{1n} - s\,M_\theta\,z_{2n} - T \big\|_2^2,
+\qquad
+M_\theta = \begin{bmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{bmatrix}.
+\]
+The trick is the substitution $a := s\cos\theta,\ b:=s\sin\theta$. The objective
+becomes \emph{quadratic} (hence convex) in $\{t_x,t_y,a,b\}$, so it has a
+\textbf{closed-form solution} from a small linear system; then recover
+$s=\sqrt{a^2+b^2}$ and $\theta=\operatorname{atan2}(b,a)$. The optimal
+translation is just the displacement between the two centroids --- which is why
+centering first is always safe.
+
+\begin{notebox}[Worked example: 2D alignment in four numbers]
+Centre both pointsets so $\sum_n z_{1n}=\sum_n z_{2n}=0$ (so $T=0$). With
+$a=s\cos\theta$, $b=s\sin\theta$, the rotation-scale block is
+$sM_\theta=\big[\begin{smallmatrix}a&-b\\ b&a\end{smallmatrix}\big]$, and
+minimising $\sum_n\norm{z_{1n}-sM_\theta z_{2n}}^2$ is a plain quadratic in
+$(a,b)$. Setting the two partial derivatives to zero (the cross terms cancel by
+symmetry) gives, with $z_{kn}=(x_{kn},y_{kn})$,
+\[
+a^\star=\frac{\sum_n (x_{1n}x_{2n}+y_{1n}y_{2n})}{\sum_n (x_{2n}^2+y_{2n}^2)},
+\qquad
+b^\star=\frac{\sum_n (y_{1n}x_{2n}-x_{1n}y_{2n})}{\sum_n (x_{2n}^2+y_{2n}^2)} .
+\]
+The numerators are exactly the \emph{dot product} and the \emph{cross product}
+of the two pointsets (summed over landmarks); the denominator is the squared
+centroid size of shape 2. Then $s=\sqrt{a^{\star 2}+b^{\star 2}}$ and
+$\theta=\operatorname{atan2}(b^\star,a^\star)$. Two sums and an
+\texttt{atan2}: that is the whole of 2D Procrustes alignment.
+\end{notebox}
+
+% =====================================================================
+\section{Optimal rotation in any dimension: Kabsch / SVD}
+% =====================================================================
+
+In 2D the angle has a tidy formula; in 3D (and for robustness) use the
+\textbf{Kabsch algorithm}, which finds the best rotation by an SVD
+\deck{ShapeAnalysis, slides 40--43}. Center both pointsets, form the (weighted)
+\textbf{cross-covariance} $H = X W Y^{\!\top}$, and take its SVD $H=U\Sigma V^{\!\top}$.
+The maximiser of the alignment objective over orthogonal matrices is achieved
+by setting the inner matrix to the identity, giving
+\[
+R = V U^{\!\top}.
+\]
+One subtlety: this might come out as a \emph{reflection} ($\det R = -1$) rather
+than a rotation. Umeyama (1991) and Kanatani (1994) fix it by flipping the sign
+of the last column:
+\[
+R = V \,\operatorname{diag}\!\big(1,\dots,1,\ \det(VU^{\!\top})\big)\, U^{\!\top},
+\]
+which guarantees $\det R = +1$ with the least possible cost. The optimal uniform
+\textbf{scale} then follows from the singular values. (This is the exact routine
+you will code in the notebook.)
+
+\begin{notebox}[Why the SVD is the right answer]
+Expand the alignment cost $\sum_n w_n\norm{x_n - R\,y_n}^2$: it is a constant
+minus $2\,\Tr(R^{\!\top}H)$ with the cross-covariance
+$H=\sum_n w_n\,x_n y_n^{\!\top}$. So minimising the error means
+\emph{maximising} $\Tr(R^{\!\top}H)$ over rotations. Substitute
+$H=U\Sigma V^{\!\top}$: the quantity becomes $\Tr(\Sigma\,V^{\!\top}R^{\!\top}U)$,
+and since $\Sigma$ is non-negative diagonal and $V^{\!\top}R^{\!\top}U$ is
+orthogonal (entries $\le 1$ in magnitude), the best you can do is make that
+orthogonal matrix the identity --- i.e.\ $R=VU^{\!\top}$. The determinant fix is
+simply the price of insisting on a rotation rather than a reflection. The same
+three lines hold in 2D and 3D, which is why we prefer the SVD form to the angle
+formula in code.
+\end{notebox}
+
+% =====================================================================
+\section{The mean shape: Karcher / Frechet and GPA}
+% =====================================================================
+
+Now to statistics. What is the \emph{average} of a set of shapes? You cannot
+simply average the coordinates of corresponding points --- two identical shapes at
+different rotations would average to a smaller, distorted blob
+\deck{ShapeAnalysis, slide 44}. The right definition mirrors the ordinary mean
+as ``the point minimising the sum of squared distances to the data'', but with
+the \emph{Procrustes} distance:
+
+\begin{keybox}[Mean shape]
+The \textbf{mean shape} is the pointset $z$ (in preshape space) that minimises
+the sum of squared Procrustes distances to all the data shapes
+\deck{ShapeAnalysis, slide 45}:
+\[
+\min_{z,\;\{s_m,R_m,T_m\}}\;\sum_{m=1}^{M}\sum_{n=1}^{N}
+   \big\| z_n - s_m R_m z^{m}_{n} - T_m\big\|_2^2
+\quad\text{subject to constraints on } z.
+\]
+This is the \textbf{Karcher mean} (the \textbf{Frechet mean} when unique), and it
+is exactly the maximum-likelihood estimate under an isotropic-Gaussian model on
+shapes with Procrustes distance.
+\end{keybox}
+
+The standard solver is \textbf{Generalised Procrustes Analysis (GPA)}, an
+\emph{alternating minimisation} \deck{ShapeAnalysis, slide 46}:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Align step:} with the current mean fixed, Procrustes-align every
+  data shape to it (solve each independently).
+  \item \textbf{Update step:} with the alignments fixed, set the new mean to the
+  \emph{average} of the aligned shapes, then rescale it back to unit norm
+  (a projection onto the constraint set --- the average already has its centroid
+  at the origin automatically).
+\end{enumerate}
+Iterate until the mean stops moving. (Picture: a scatter of unaligned outlines
+on the left collapses, after GPA, into a tight bundle around a clean mean on the
+right \deck{ShapeAnalysis, slide 47}. This is precisely what the notebook draws.)
+
+% =====================================================================
+\section{From a curved space to a flat one: tangent coordinates}
+% =====================================================================
+
+A subtlety we have glossed over: preshapes live on a \emph{hypersphere}, and
+Kendall's shape space is \emph{curved}. PCA, however, is a linear tool --- it
+wants a flat (Euclidean) space. The standard reconciliation is to work in the
+\textbf{tangent space} to the shape manifold at the mean: project every aligned
+shape onto the flat plane that just touches the sphere at the mean shape, then do
+all the linear statistics (covariance, PCA) there \deck{ShapeAnalysis, slide 34}.
+For the small shape variations typical of one anatomical structure across a
+healthy population, the manifold is nearly flat near the mean, so the aligned
+Procrustes coordinates and their tangent projections are almost identical --- and
+in the notebook we simply use the aligned coordinates directly. The distinction
+starts to matter when shapes vary a lot (large deformations, very different
+species), where ignoring curvature would visibly distort the modes.
+
+% =====================================================================
+\section{Modes of variation: PCA on aligned shapes}
+% =====================================================================
+
+With the shapes aligned to the mean, the leftover scatter \emph{is} the shape
+variability. Model it the obvious way \deck{ShapeAnalysis, slide 48}: assume a
+Gaussian, estimate the \textbf{sample covariance} of the aligned shape vectors
+(this is the MLE), and take its eigenvectors.
+
+\begin{keybox}[Principal modes of shape variation]
+The \textbf{principal eigenvectors} of the shape covariance are the
+\textbf{principal modes of variation}: each is a direction in $\R^{DN}$ along
+which the landmarks tend to move \emph{together}. Walking the mean shape along a
+mode,
+\[
+z(\,b\,) = \bar z + b\,\sqrt{\lambda_k}\,\, v_k ,\qquad b \in [-3, 3],
+\]
+generates a family of plausible shapes (e.g.\ ``finger spread'' as mode 1,
+``thumb angle'' as mode 2 on a hand dataset \deck{ShapeAnalysis, slides 49--51}).
+The eigenvalue $\lambda_k$ is the variance captured by mode $k$; usually the
+first few modes capture almost everything --- which is why a shape with $2N$
+coordinates is really only a handful of numbers.
+\end{keybox}
+
+This mean-plus-modes object is exactly the \textbf{Point Distribution Model} at
+the heart of \textbf{Active Shape Models} (Cootes et al.\ 1995): a compact,
+generative model of an anatomical structure whose shape parameters $b$ you can
+read, constrain, sample, and fit to new images \deck{ShapeAnalysis, slides 6,
+37}.
+
+\subsection{How many modes, and is the model any good?}
+
+You rarely keep all the modes. Two competing pressures decide how many:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Compactness:} keep enough modes to explain, say, $95\%$ of the
+  total variance $\sum_k\lambda_k$. Often a handful suffice --- the cloud is
+  thin in most directions.
+  \item \textbf{Generalisation vs.\ specificity:} too few modes and the model
+  cannot represent a genuine new shape (poor \emph{generalisation}); too many
+  and it can also generate implausible shapes by over-fitting training noise
+  (poor \emph{specificity}). The balance is judged by reconstructing held-out
+  shapes and by sampling the model and checking the samples look real.
+\end{itemize}
+Constraining each parameter to, e.g., $|b_k|\le 3\sqrt{\lambda_k}$ keeps
+generated and fitted shapes inside the \emph{Allowable Shape Domain} --- the
+trick that lets an Active Shape Model refuse to hallucinate an anatomically
+impossible boundary.
+
+% =====================================================================
+\section{Where shape models are used --- and the next step}
+% =====================================================================
+
+Statistical shape models are used to \deck{ShapeAnalysis, slide 54}:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{study} normal variability of an organ across a population;
+  \item \textbf{test hypotheses} --- does a structure's shape differ in a disease?
+  \item \textbf{classify} patients by the shape of a brain structure or bone;
+  \item supply \textbf{shape priors} that regularise segmentation (a CNN can
+  hallucinate an implausible ventricle; a shape prior pulls it back to the
+  Allowable Shape Domain).
+\end{itemize}
+
+A concrete example ties it together: in studies of Alzheimer's disease the
+\textbf{hippocampus} is landmarked across many brains, a GPA mean and PCA modes
+are built, and the leading shape parameters $b$ are compared between patients and
+controls. A localised inward deformation of the hippocampal head shows up as a
+\emph{specific mode} that differs significantly between groups --- and can even
+help predict conversion years ahead. Same pipeline (correspond $\to$ align
+$\to$ mean $\to$ modes), real clinical payoff.
+
+\begin{notebox}[Common pitfalls]
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Reflections.} Forgetting the determinant fix in the rotation
+  step lets a flipped shape ``align'' with low error --- a silent bug.
+  \item \textbf{Bad correspondence.} Mis-placed or inconsistently ordered
+  landmarks inject fake variation that often dominates the first PCA mode.
+  \item \textbf{Scale leakage.} If centroid size actually carries signal
+  (e.g.\ growth studies), normalising it away discards real information; decide
+  deliberately whether size is part of ``shape''.
+  \item \textbf{Too few subjects.} With $M$ shapes the covariance has rank at
+  most $M-1$, so you cannot estimate more than $M-1$ modes, and tiny datasets
+  give noisy ones.
+\end{itemize}
+\end{notebox}
+
+\begin{notebox}[Beyond linear models]
+The PCA model assumes the cloud of aligned shapes is roughly an ellipsoid (a
+single Gaussian). When sub-parts rotate, the cloud curves and a linear model
+strains. The fixes --- mixtures of Gaussians, or \textbf{kernel PCA} (PCA in a
+feature space via the kernel trick) --- are exactly the kernel-methods material
+that rounds out Week 4. The shape pipeline (correspond $\to$ align $\to$ mean
+$\to$ modes) stays the same; only the ``modes'' step gets a nonlinear upgrade.
+\end{notebox}
+
+\begin{keybox}[Do the notebook]
+\texttt{notebooks/01\_shape\_analysis\_procrustes\_pca.ipynb} builds a synthetic
+dataset of 2D outlines (with known modes), aligns two shapes with Procrustes,
+runs \textbf{GPA} to recover the mean shape, and does \textbf{PCA} to recover the
+modes of variation (mean $\pm 2\sigma$). It is NumPy + Matplotlib only. A note at
+the end shows how to swap in the real \texttt{hands2D.mat} landmark data from
+\texttt{Assignments/a4/}.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{Shape \& Procrustes foundations}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://en.wikipedia.org/wiki/Procrustes_analysis}{Wikipedia --- Procrustes analysis} (ordinary vs generalised, with the GPA loop).
+  \item \href{https://en.wikipedia.org/wiki/Kabsch_algorithm}{Wikipedia --- Kabsch algorithm} (optimal rotation by SVD).
+  \item I.\ Dryden \& K.\ Mardia, \emph{Statistical Shape Analysis} --- the standard book (Kendall's shape space, tangent coordinates).
+\end{itemize}
+
+\textbf{Active Shape Models / Point Distribution Models}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Cootes, Taylor, Cooper \& Graham (1995), \href{https://personalpages.manchester.ac.uk/staff/timothy.f.cootes/papers/cviu95.pdf}{\emph{Active Shape Models --- Their Training and Application}} (the canonical paper; the deck follows its alignment formulation).
+  \item Cootes, \href{https://personalpages.manchester.ac.uk/staff/timothy.f.cootes/Models/pdms.html}{Statistical Shape Models} and \href{https://people.computing.clemson.edu/~ekp/courses/cpsc9500/assets/IntroASM.pdf}{\emph{An Introduction to Active Shape Models}} (gentle tutorial).
+  \item \href{https://en.wikipedia.org/wiki/Active_shape_model}{Wikipedia --- Active shape model}.
+\end{itemize}
+
+\textbf{Generalised Procrustes in practice (geometric morphometrics)}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{http://www.emmasherratt.com/uploads/2/1/6/0/21606686/quick_guide_to_geomorph-_gpa.html}{Quick Guide to \texttt{geomorph}} --- GPA on real landmark data, with semilandmarks and tangent-space projection.
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736
+ShapeAnalysis deck, with attribution. For mentee use on this project; please do
+not redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

@@ -1,0 +1,416 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 5
+%  Neural Networks for Images (CNNs, U-Net, and the modern zoo)
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or
+%  upload to Overleaf and hit Recompile.
+%      pdflatex MIC_Neural_Networks_for_Images.tex
+%      pdflatex MIC_Neural_Networks_for_Images.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 DeepGenerativeModeling deck
+%  (CNN half), with attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{\textbf{Neural Networks for Images}\\[2pt]
+\large Convolutional networks, U-Net, and the modern segmentation zoo\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 5}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+For four weeks you \emph{hand-built} the pieces of an imaging algorithm: a noise
+model, a prior, a forward operator, a distance. Deep learning replaces the
+hand-built pieces with \emph{learned} ones --- but it does not throw away the
+Bayesian picture, it slots into it. A CNN is just a very flexible function whose
+millions of parameters are fitted by gradient descent; in our language it is
+``one class of priors and one class of optimisers''. This chapter builds the CNN
+from the neuron up, explains why convolution is the right inductive bias for
+images, tours the architectures you will actually meet in medical imaging
+(U-Net, nnU-Net, ViT, SAM), and is honest about what deep learning does and does
+not buy you. Keep the \deck{DeepGenerativeModeling} deck open (the CNN material
+is slides 4--29); do the notebook to feel the learning mechanics in NumPy. The
+heavy PyTorch practice lives in the cited tutorials --- this chapter is the map.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{From hand-built features to learned features}
+% =====================================================================
+
+Weeks 1--4 were a course in \emph{designing} the right function for a task: a
+Huber penalty that preserves edges, a ramp filter that inverts the Radon
+transform, a Procrustes alignment that removes pose. Each was a clever, fixed
+recipe. Deep learning asks a different question: \emph{what if we let the data
+choose the recipe?} A neural network is a function $f_\theta$ with a huge number
+of tunable parameters $\theta$; we pick a loss that measures how wrong it is on
+training examples, and we let gradient descent adjust $\theta$ until it is right.
+
+This is not a betrayal of everything before --- it is the same machinery with the
+function class swapped out \deck{DeepGenerativeModeling, slide 24}. You still
+choose a likelihood (the loss), you still regularise (weight decay, dropout,
+augmentation), and you still optimise (gradient descent, now with automatic
+differentiation). The course's stance is deliberately un-hyped: deep learning is
+\emph{one} powerful family of models and \emph{one} family of optimisers, to be
+understood inside the probabilistic picture you already have --- not a magic box.
+
+% =====================================================================
+\section{The neuron, the layer, and why nonlinearity}
+% =====================================================================
+
+The atom is the \textbf{artificial neuron}: take inputs $x$, form a weighted sum
+$w^{\!\top}x + b$, and pass it through a nonlinear \textbf{activation} $\sigma$:
+\[
+a = \sigma\!\left(w^{\!\top}x + b\right).
+\]
+Stack many neurons into a \textbf{layer} (a matrix multiply plus a bias plus a
+pointwise nonlinearity), and stack many layers into a \textbf{network}
+\deck{DeepGenerativeModeling, slides 4, 13}. The depth is where the power comes
+from: each layer transforms the representation produced by the previous one, so
+early layers can learn simple patterns and later layers combine them into
+complex ones.
+
+\begin{keybox}[Why the nonlinearity is not optional]
+Without $\sigma$, a stack of layers is just $W_3(W_2(W_1 x))=(W_3W_2W_1)x$ --- one
+big linear map, no matter how deep. The nonlinear activation between layers is
+\emph{exactly} what lets a deep network represent functions a single linear layer
+cannot. ``Deep'' only means something because of the nonlinearity in between.
+\end{keybox}
+
+% =====================================================================
+\section{Convolution: the right inductive bias for images}
+% =====================================================================
+
+A fully-connected layer on a $256\times256$ image would need a weight for every
+pixel-to-neuron pair --- billions of parameters, and it would have to re-learn
+that an edge is an edge separately at every location. Images have structure we
+can build in instead. A \textbf{convolution layer} slides a small learnable
+\textbf{filter} (kernel) across the image and records, at each position, how
+strongly the local patch matches the filter \deck{DeepGenerativeModeling, slides
+5--7}. Three properties make this the right choice for images:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Locality:} each output looks only at a small neighbourhood ---
+  the receptive field --- because image structure is local.
+  \item \textbf{Weight sharing:} the same filter is used everywhere, so a feature
+  (say, a vertical edge) is detected wherever it occurs, and the parameter count
+  is tiny (the filter size, not the image size).
+  \item \textbf{Translation equivariance:} shift the input, and the feature map
+  shifts the same way --- the network does not need to see an object in every
+  position to recognise it.
+\end{itemize}
+Stacked convolution layers grow the receptive field and build a hierarchy: the
+first layer of a trained network learns oriented edges and colour blobs; the
+second learns corners and textures; deeper layers learn object parts. This is not
+a metaphor --- you can visualise the learned filters of AlexNet and literally see
+the edge detectors emerge in layer 1 \deck{DeepGenerativeModeling, slides
+9--10}. Strikingly, the same hierarchy shows up in the visual cortex (simple
+cells $\to$ complex cells), which is where the idea came from
+\deck{DeepGenerativeModeling, slides 16--21}.
+
+\begin{notebox}[``Convolution'' in deep learning is really cross-correlation]
+What DL libraries call convolution does \emph{not} flip the kernel --- it is
+mathematical \textbf{cross-correlation} \deck{DeepGenerativeModeling, slide 8}.
+For \emph{learning} it makes no difference (the network just learns the flipped
+filter), but in the imaging literature ``convolution'' means convolution and
+``cross-correlation'' means cross-correlation. Keep the two vocabularies
+straight: it is the one place the same word means two things across the weeks of
+this course.
+\end{notebox}
+
+\paragraph{The knobs.} A convolution layer is specified by its kernel size, the
+number of input and output \textbf{channels}, the \textbf{stride} (how far the
+filter hops --- stride $>1$ downsamples), the \textbf{padding} (zeros around the
+border, to control output size), and the \textbf{dilation} (gaps in the kernel,
+to enlarge the receptive field cheaply). The parameter count of one layer is
+\[
+(\text{kernel height}\times\text{kernel width}\times C_{\text{in}} + 1)\times C_{\text{out}},
+\]
+which for a $3\times3$ kernel mapping $64\to64$ channels is
+$(3\cdot3\cdot64+1)\cdot64 \approx 37$k --- independent of the image size.
+
+\begin{notebox}[Worked example: why convolution saves parameters]
+Take a $256\times256$ grayscale image. A \emph{fully-connected} layer with $1000$
+hidden units needs $256^2\times1000\approx 6.6\times10^7$ weights --- and it would
+learn ``edge at top-left'' separately from ``edge at bottom-right''. A
+\emph{convolution} layer with $64$ filters of size $3\times3$ needs only
+$(3\cdot3+1)\cdot64=640$ weights and detects an edge \emph{anywhere}. Stacking
+layers grows the \textbf{receptive field} (the input region one output sees):
+two $3\times3$ layers see a $5\times5$ patch, three see $7\times7$. So depth, not
+width, is how a CNN assembles global understanding from cheap local filters.
+\end{notebox}
+
+% =====================================================================
+\section{The supporting cast: activations, pooling, normalisation}
+% =====================================================================
+
+A working network needs a few more standard layers \deck{DeepGenerativeModeling,
+slides 11--13}:
+
+\begin{description}[leftmargin=*,nosep]
+  \item[\textbf{Activations.}] \textbf{ReLU} $f(x)=\max(0,x)$ is the default ---
+  cheap, and it does not saturate for positive inputs (so gradients flow).
+  \textbf{GELU} $f(x)=x\,\Phi(x)$ (a smooth ReLU) is common in modern nets;
+  \textbf{softplus} $\log(1+e^x)$ is a smooth positive map; \textbf{sigmoid} and
+  \textbf{softmax} squash outputs into $[0,1]$ / a probability vector for the
+  \emph{final} classification layer.
+  \item[\textbf{Pooling.}] \textbf{Max-} or \textbf{average-pooling} shrinks a
+  feature map (e.g.\ $2\times2\to1$), giving a little translation invariance and
+  cutting compute. Modern nets often replace pooling with strided convolutions.
+  \item[\textbf{Normalisation.}] \textbf{BatchNorm} standardises activations
+  across the batch to stabilise and speed training; for the \emph{small batches}
+  typical of 3D medical data, \textbf{GroupNorm} or \textbf{InstanceNorm} are
+  preferred because BatchNorm's statistics get noisy.
+\end{description}
+
+% =====================================================================
+\section{Training: loss, backprop, optimisers, overfitting}
+% =====================================================================
+
+\paragraph{The loss.} The loss turns ``how wrong is the network'' into a number
+to minimise. For \textbf{classification} it is usually \textbf{cross-entropy}
+(the negative log-likelihood of a categorical model). For \textbf{segmentation}
+--- where one class often dwarfs another (a tiny tumour in a big scan) --- plain
+accuracy and cross-entropy are misleading, so people use the \textbf{Dice loss}
+(or generalised Dice / Tversky), which directly rewards overlap with the target
+mask. Choosing the loss \emph{is} choosing the likelihood: it is the same modelling
+decision you made when you picked Gaussian vs Rician in Week 2.
+
+\paragraph{Backpropagation.} How do we get the gradient of the loss with respect
+to millions of parameters? \textbf{Reverse-mode automatic differentiation}:
+the network is a graph of simple operations, each of which knows its local
+derivative; backprop applies the chain rule from the loss backwards through the
+graph, reusing intermediate results, so the \emph{whole} gradient costs about as
+much as one forward pass \deck{DeepGenerativeModeling, slide 3}. You almost never
+write it by hand --- PyTorch's autograd does it --- but you will implement a tiny
+version in the notebook so it is not magic.
+
+\begin{notebox}[Backprop in one concrete line]
+For a two-layer net $a=\sigma(W_1x)$, $\hat y=W_2 a$, the chain rule gives
+\[
+\frac{\partial L}{\partial W_2}=\frac{\partial L}{\partial\hat y}\,a^{\!\top},
+\qquad
+\frac{\partial L}{\partial W_1}=\Big(W_2^{\!\top}\tfrac{\partial L}{\partial\hat y}\odot\sigma'(W_1x)\Big)x^{\!\top}.
+\]
+That is the \emph{whole} algorithm: push the error backwards, multiplying by each
+layer's local derivative ($\sigma'$ at a nonlinearity, a weight matrix at a linear
+layer). The notebook codes exactly this for a 1-hidden-layer net.
+\end{notebox}
+
+\paragraph{Optimisers.} Plain \textbf{SGD} updates $\theta\leftarrow\theta-\eta\nabla
+L$; \textbf{momentum} smooths the trajectory; \textbf{Adam}/\textbf{AdamW} adapt
+a per-parameter step size and are the usual default. A \textbf{learning-rate
+schedule} (warm-up then decay) matters more than people expect.
+
+\paragraph{Overfitting and how to fight it.} A network with millions of
+parameters can simply \emph{memorise} a small dataset. The defences are the
+regularisers you already know in a new guise \deck{DeepGenerativeModeling, slide
+29}: \textbf{weight decay} (an $\ell^2$ prior on the weights --- literally
+Tikhonov), \textbf{dropout} (randomly zero activations during training),
+\textbf{data augmentation} (rotate/flip/deform training images so the model sees
+more variety), \textbf{early stopping}, and getting more data. In medical imaging,
+where 100 labelled scans is ``a lot'', these are not optional --- they are the
+difference between a model that generalises and one that does not.
+
+\subsection{Surviving small data: augmentation, transfer, self-supervision}
+
+Three tools matter so much in medical imaging that they deserve their own
+heading. \textbf{Data augmentation} manufactures new training examples with
+label-preserving transforms --- flips, rotations, intensity jitter, and (very
+medical) \emph{elastic deformations} that mimic anatomical variability; it is the
+cheapest, most reliable regulariser when labels are scarce. \textbf{Transfer
+learning} starts from a network pre-trained on a large dataset (ImageNet, or a
+medical foundation model) and fine-tunes it on your few hundred scans --- the
+early edge/texture filters transfer almost for free. \textbf{Self-supervised
+pre-training} goes one better: learn features from \emph{unlabelled} scans (by
+inpainting, contrastive learning, or masked-image modelling), then fine-tune on
+the tiny labelled set. Together, these are why a 200-scan dataset can still train
+a usable model --- and why ``just collect more labels'' is rarely the first move.
+
+% =====================================================================
+\section{Architectures you will actually meet}
+% =====================================================================
+
+\paragraph{Classifiers (the lineage).} \textbf{LeNet} (1998) and \textbf{AlexNet}
+(2012) established the conv$\to$pool$\to$dense pattern; \textbf{VGG} made it deep
+and uniform \deck{DeepGenerativeModeling, slide 14}. \textbf{ResNet} added
+\textbf{residual (skip) connections} $y=f(x)+x$, which let gradients flow through
+very deep nets and made 100+ layer networks trainable --- the single most
+important architectural trick of the 2010s.
+
+\paragraph{Encoder--decoder and U-Net.} For tasks whose \emph{output is an image}
+(segmentation, denoising, super-resolution) you need an output the same size as
+the input. An \textbf{encoder--decoder} compresses the image to a small latent
+representation and then expands it back \deck{DeepGenerativeModeling, slides
+23--27}. The decisive refinement for medical imaging is \textbf{U-Net} (MICCAI
+2015): \textbf{skip connections} that concatenate encoder feature maps to the
+decoder at each scale, so fine spatial detail lost during downsampling is handed
+back during upsampling \deck{DeepGenerativeModeling, slide 26}. U-Net is the
+\emph{de facto} backbone of medical image segmentation, with the original paper
+passing 100k+ citations.
+
+\paragraph{nnU-Net: configuration beats novelty.} \textbf{nnU-Net} (``no-new-Net'')
+is not a new architecture --- it is a self-configuring \emph{pipeline} that, given
+a dataset, automatically sets preprocessing, patch size, normalisation, and
+training schedule around a fairly plain U-Net. Its lesson is humbling and
+important: careful configuration of an old architecture beats most clever new
+ones, and nnU-Net remains the benchmark to beat in 3D medical segmentation.
+
+\paragraph{Transformers and foundation models.} \textbf{Vision Transformers}
+(ViT) replace convolution's locality with global \emph{self-attention}; hybrids
+like \textbf{UNETR} and \textbf{Swin-UNETR} put a transformer encoder on a
+convolutional U-Net decoder. \textbf{SAM} (Segment Anything) and its medical
+adaptation \textbf{MedSAM} are \emph{foundation models} --- pre-trained on
+enormous data and prompted to segment new objects.
+
+\begin{notebox}[A useful dose of scepticism]
+A steady stream of papers claims a new Transformer/Mamba architecture beats
+U-Net. Recent rigorous benchmarks (``nnU-Net Revisited'', 2024; CNN-vs-Transformer-
+vs-Mamba studies, 2025--26) find that when everything is trained and validated
+fairly, a well-configured CNN U-Net is still at or near the top, and the fancy
+models often cost far more compute for no reliable gain. The takeaway is the same
+as Week 3's: \emph{validation discipline beats architectural fashion}. Transformers
+shine mainly when you have very large datasets; medical datasets usually are not.
+\end{notebox}
+
+% =====================================================================
+\section{The medical-imaging twist}
+% =====================================================================
+
+Deep learning ``just works'' on natural images partly because ImageNet has
+millions of labelled examples. Medical imaging breaks that assumption, and the
+differences drive most of the practical decisions:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Small, expensive labels.} Annotation needs a radiologist.
+  Augmentation, transfer learning, and self-supervised pre-training are how you
+  cope.
+  \item \textbf{3D vs 2D.} Many scans are volumes. True 3D nets see context but
+  cost memory; 2D-slice nets are cheaper but lose through-plane information.
+  \item \textbf{Distribution shift.} A model trained on one scanner/site/vendor
+  often degrades on another --- a serious safety issue.
+  \item \textbf{Evaluation.} Accuracy is a \emph{terrible} segmentation metric
+  (predict ``all background'' and score 99\%). Use \textbf{Dice}, \textbf{IoU},
+  and boundary metrics like \textbf{Hausdorff-95}; report on a held-out test set.
+\end{itemize}
+
+\begin{notebox}[Worked example: why accuracy lies, and what Dice does]
+A tumour occupies $1\%$ of a slice. A model that labels \emph{every} pixel
+``background'' is $99\%$ accurate and $100\%$ useless. The \textbf{Dice} score
+$\mathrm{Dice}=\dfrac{2|P\cap G|}{|P|+|G|}$ (overlap of prediction $P$ and ground
+truth $G$) is $0$ for that model and $1$ only for a perfect mask --- which is why
+segmentation is trained and judged with Dice, not accuracy.
+\end{notebox}
+
+\begin{notebox}[Region vs boundary: report both]
+\textbf{Dice} and \textbf{IoU} $=|P\cap G|/|P\cup G|$ measure region overlap but
+say nothing about \emph{boundaries}, so a clinically important edge error can hide
+behind a high Dice. \textbf{Hausdorff-95} and average surface distance measure how
+far the predicted boundary strays (in mm). Always report a region metric
+\emph{and} a boundary metric --- a method can win one and lose the other.
+\end{notebox}
+
+\begin{notebox}[Common pitfalls in medical deep learning]
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Patient-level leakage.} Slices from the same patient in both train
+  and test inflate scores wildly. Split by \emph{patient}, never by slice.
+  \item \textbf{Class imbalance.} A tiny lesion drowns in background; use Dice /
+  focal losses and report per-class numbers, not a global average.
+  \item \textbf{Tuning on the test set.} Pick hyper-parameters on a validation
+  split; touch the test set once, at the very end.
+  \item \textbf{Distribution shift.} Great numbers on one scanner can collapse on
+  another; validate across sites/vendors whenever you can.
+\end{itemize}
+\end{notebox}
+
+% =====================================================================
+\section{The bridge back to the Bayesian picture}
+% =====================================================================
+
+A trained CNN is, in our language, a \textbf{learned feature extractor} and a
+\textbf{learned prior}. The same network that segments can be read as computing
+$p(\text{label}\mid\text{image})$; an encoder--decoder denoiser is doing MAP
+estimation with a prior baked into its weights; and in Week 6 a generative
+network (VAE/GAN/diffusion) will become an explicit \emph{learned prior} that you
+can drop into the reconstruction objective
+$\min_x \tfrac12\norm{Gx-y}^2 + \lambda R(x)$ in place of the hand-built $R$. The
+plumbing changes; the picture does not.
+
+\begin{keybox}[Do the notebook (and your first project)]
+\texttt{notebooks/01\_cnn\_building\_blocks\_from\_scratch.ipynb} (NumPy +
+Matplotlib) shows convolution as a feature detector, then trains a tiny network
+from scratch with hand-written backprop on synthetic data --- so autodiff,
+nonlinearity, and gradient descent are concrete, not magic. For real
+\textbf{PyTorch} practice (a CNN classifier, a U-Net), use the cited CS231n /
+PyTorch / MONAI tutorials in the \texttt{mic\_soc} environment. This is also where
+\textbf{Project 2} (the segmentation project, due in \texttt{week\_6}) starts to
+make sense end-to-end.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{Foundations (neural nets \& CNNs)}
+\begin{itemize}[nosep,leftmargin=*]
+  \item 3Blue1Brown, \href{https://www.youtube.com/watch?v=aircAruvnKk}{\emph{But what is a neural network?}} and \href{https://www.youtube.com/watch?v=tIeHLnjs5U8}{backpropagation} (the best visual intuition).
+  \item Stanford \href{https://cs231n.github.io/}{CS231n notes} --- ``Convolutional Networks'' and ``Optimisation''.
+  \item Dumoulin \& Visin, \href{https://arxiv.org/abs/1603.07285}{\emph{A guide to convolution arithmetic for deep learning}} (stride/padding/dilation, with pictures).
+\end{itemize}
+
+\textbf{Hands-on (PyTorch / MONAI)}
+\begin{itemize}[nosep,leftmargin=*]
+  \item \href{https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html}{PyTorch 60-minute blitz}.
+  \item \href{https://github.com/Project-MONAI/tutorials}{MONAI tutorials} (medical-imaging PyTorch: 2D/3D segmentation).
+\end{itemize}
+
+\textbf{Architectures}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Ronneberger, Fischer \& Brox (2015), \href{https://arxiv.org/abs/1505.04597}{\emph{U-Net}}; Isensee et al.\ (2021), \href{https://www.nature.com/articles/s41592-020-01008-z}{\emph{nnU-Net}}.
+  \item \href{https://arxiv.org/html/2404.09556v2}{\emph{nnU-Net Revisited: A Call for Rigorous Validation}} (2024) --- why configuration beats novelty.
+  \item \href{https://link.springer.com/article/10.1007/s00521-026-12198-6}{A comprehensive review of U-Net architectures} (2026); \href{https://www.mdpi.com/2306-5354/12/12/1312}{SAM for medical image segmentation} (review).
+\end{itemize}
+
+\textbf{Evaluation \& survey}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Maier-Hein et al., \href{https://www.nature.com/articles/s41592-023-02151-z}{\emph{Metrics Reloaded}} (choosing the right metric).
+  \item Litjens et al.\ (2017), \href{https://www.sciencedirect.com/science/article/pii/S1361841517301135}{\emph{A survey on deep learning in medical image analysis}}.
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736
+DeepGenerativeModeling deck (CNN half), with attribution. For mentee use on this
+project; please do not redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

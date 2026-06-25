@@ -1,0 +1,1018 @@
+% =============================================================
+%  Long Technical Handbook --- Medical Image Computing (SoC)
+%
+%  This is the "big-picture first" handbook. For each week it gives
+%  a moderately technical overview of every term the mentee will
+%  encounter, with hyperlinks to deeper reads. Mentees should read
+%  the relevant chapter end-to-end BEFORE opening any of the linked
+%  resources or the slide decks.
+%
+%  Compile with: pdflatex handbook_main.tex (twice; once for ToC)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,amsfonts}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage[hidelinks,colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!55!black,citecolor=blue!50!black]{hyperref}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable, skins}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!45!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!35!black}}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\sffamily}{\thesubsubsection}{0.4em}{}
+
+\newtcolorbox{howtoread}{
+  colback=yellow!8, colframe=orange!60!black, boxrule=0.6pt,
+  arc=2pt, left=8pt,right=8pt,top=6pt,bottom=6pt, breakable,
+  title=\textsf{\bfseries How to read this chapter}, fonttitle=\sffamily\bfseries
+}
+
+\newtcolorbox{keyterm}[1]{
+  colback=blue!4, colframe=blue!40!black, boxrule=0.5pt,
+  arc=2pt, left=8pt,right=8pt,top=4pt,bottom=4pt, breakable,
+  title=\textsf{\bfseries Key idea: #1}, fonttitle=\sffamily\bfseries
+}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\KL}{\mathrm{KL}}
+
+\title{\sffamily\bfseries Medical Image Computing\\[3pt]
+       \large A Long Technical Handbook --- Summer of Code mentee guide}
+\author{\sffamily Mentor's handbook (v1)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{howtoread}
+This handbook is your \textbf{big-picture-first} reference. Each
+weekly chapter sketches every term you will encounter that week
+\emph{in moderately technical language}, with hyperlinks to longer
+reads. The pattern of reading you should adopt every week is:
+
+\begin{enumerate}[nosep, leftmargin=*]
+  \item \textbf{Read this chapter end-to-end.} Roughly 15--30 minutes.
+        Goal: when you next hear ``Cauchy--Riemann'' or ``Hammersley--Clifford''
+        or ``ELBO'', you can locate it on your mental map.
+  \item \textbf{Open the week's slide deck} (see
+        \texttt{slides/SLIDES\_INDEX.md}). Read it linearly; you will
+        recognise the terms.
+  \item \textbf{Pick at most two} linked resources per week and read
+        them properly. The rest are there if you decide to specialise
+        later.
+  \item \textbf{Do the notebooks and exercises} in
+        \texttt{week\_N/Readme.md}.
+\end{enumerate}
+
+Why this order? Because most students lose more time hopping between
+random search results trying to figure out what a term means than they
+do actually learning the concept. The handbook exists to give you a
+\emph{scaffold} so that every external resource you read already has a
+slot to drop into.
+\end{howtoread}
+
+\bigskip
+\noindent\textsf{\bfseries How the repo is organised (folder $\leftrightarrow$ chapter).}
+The week \emph{folders} are named by their calendar span, and each now ships its
+own focused theory PDF in \texttt{week\_*/theory/}; this handbook remains the
+big-picture overview across all of them.
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\hline
+Calendar & Folder & Topic \\
+\hline
+Weeks 1--1.5 & \texttt{week\_0\_to\_1.5} & Images, math \& probability foundations \\
+Weeks 1.5--3 & \texttt{week\_1.5\_to\_3} & Statistical priors, denoising, inverse problems \\
+Week 3       & \texttt{week\_3}          & CT \& MRI physics (fundamentals) \\
+Week 4       & \texttt{week\_4}          & Shape, segmentation, registration, kernels \\
+Weeks 5--6.5 & \texttt{week\_5}, \texttt{week\_6} & CNNs; VAEs and GANs \\
+Weeks 6.5--8 & \texttt{week\_7}, \texttt{week\_8} & Paper reading; final project \\
+\hline
+\end{tabular}
+\end{center}
+
+\noindent Where a chapter below says ``Week 2'' or ``Week 3'', read it as the
+\emph{calendar} label in this table. The reconstruction / inverse-problems
+material lives in \texttt{week\_1.5\_to\_3}; the CT and MRI \emph{physics} moved
+to their own \texttt{week\_3} chapter.
+
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{Course philosophy: math first, then DL}
+% =============================================================
+
+Medical Image Computing (MIC) is the engineering and mathematical
+discipline that builds algorithms for medical-image data. It sits at
+the intersection of computer science, applied mathematics, signal /
+image processing, statistics, and the physics of imaging modalities
+(X-rays, magnetic resonance, ultrasound, microscopy, $\ldots$).
+
+This course is built on top of \emph{CS-736 Medical Image Computing} at
+IIT Bombay (Prof.~Suyash P.~Awate). Two emphases follow from that:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item It is \textbf{math-first}. Every algorithm in weeks 2--6 is
+        either \emph{a maximum-a-posteriori (MAP) estimate under some
+        prior and noise model}, or \emph{a clustering / classification
+        / regression problem with a chosen geometry}. Deep learning is
+        a powerful \emph{parameterisation}, but it does not replace
+        the principled scaffold.
+  \item It is \textbf{modality-aware}. CT and MRI images are produced
+        by physical systems with very specific structure; the
+        algorithms that work on them inherit that structure
+        (Beer--Lambert law, Bloch equations, Radon transform, $k$-space).
+\end{itemize}
+
+The recurring object in everything we do is Bayes' theorem applied to
+an unknown image (or label / shape / mapping) $x$ given measurements $y$:
+\begin{equation}
+  p(x \mid y) \;\propto\; \underbrace{p(y \mid x)}_{\text{noise / forward model}} \cdot \underbrace{p(x)}_{\text{prior}}.
+  \label{eq:bayes-image}
+\end{equation}
+
+Almost everything you learn this summer is one of:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item a way to write down $p(y \mid x)$ (Weeks 2, 3);
+  \item a way to write down $p(x)$ (Weeks 2, 4, 5, 6);
+  \item a way to maximise the right-hand side of \eqref{eq:bayes-image}
+        (Weeks 3, 5);
+  \item a way to evaluate whether your $\hat x$ is any good (Weeks 5, 7, 8).
+\end{itemize}
+
+% =============================================================
+\section{Weeks 1--1.5 (\texttt{week\_0\_to\_1.5}) --- Images, math \& probability foundations}
+% =============================================================
+
+\subsection{Big picture}
+
+A \textbf{digital image} is just an $N$-dimensional array of numbers
+laid out on a regular grid. A pixel (2D) or voxel (3D) is one entry
+in that array; its \emph{intensity} is the number stored there. What
+that number physically means depends on the modality: for CT it is an
+attenuation coefficient (or its Hounsfield-unit rescaling); for MRI it
+is the magnitude of a complex magnetisation; for microscopy it is a
+photon count.
+
+The colour you \emph{see} when an image is displayed is not the data ---
+it is a \textbf{colormap}, a function from the data values to colours.
+The same MRI slice can look black-on-white or white-on-black; the data
+are identical. Get into the habit of always inspecting the
+\emph{intensity histogram} of an image alongside the picture.
+
+Two pieces of mathematical machinery sit underneath nearly every
+algorithm in this course:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Linear algebra} --- because images are vectors (just
+        very long ones), and almost every operation we do is a linear
+        map followed by something. Make sure you are comfortable with:
+        matrix--vector multiplication as a linear map, transposes,
+        inverses, ranks, eigen-decomposition of symmetric matrices,
+        the singular value decomposition (SVD) at the level of
+        ``it factorises $A = U\Sigma V^\top$ and the columns of $V$
+        are the input principal directions''.
+  \item \textbf{Probability \& statistics} --- because every imaging
+        system produces noisy measurements, and every prior we
+        impose on $x$ is a probability distribution. You should be
+        able to write the PDF of a Gaussian and a Poisson by hand,
+        and state Bayes' theorem without looking it up.
+\end{itemize}
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Pixel / voxel.}] A single sampling location of the
+        image grid. ``Pix-el'' = \emph{pic}ture \emph{el}ement. Voxel
+        is the 3D analogue.
+  \item[\textbf{Intensity.}] The value stored at a pixel. Real or
+        integer; signed or unsigned; range depends on bit-depth
+        ($[0,255]$ for 8-bit, $[0,65535]$ for 16-bit, real for float
+        scanners).
+  \item[\textbf{Colormap.}] A function from intensity to displayed
+        colour. Examples: \texttt{gray}, \texttt{viridis}, hot-iron.
+  \item[\textbf{Voxel spacing.}] The physical size (in mm) of one
+        voxel along each axis. Medical scanners produce
+        \emph{anisotropic} voxels (e.g.\ $1{\times}1{\times}3$ mm)
+        for many protocols.
+  \item[\textbf{Convolution.}] The operation
+        $(I * k)[m,n] = \sum_{i,j} I[m-i,n-j]\,k[i,j]$. Equivalent in
+        spectrum: pointwise product in the Fourier domain.
+  \item[\textbf{2D Fourier transform.}] Decomposes an image into a
+        sum of plane waves indexed by spatial frequency $(u,v)$.
+  \item[\textbf{Norms.}] $\ell^2$-norm
+        $\|x\|_2 = \sqrt{\sum_i x_i^2}$, $\ell^1$
+        $\|x\|_1 = \sum_i |x_i|$, $\ell^\infty$
+        $\|x\|_\infty = \max_i |x_i|$. The $\ell^1$ norm promotes
+        sparsity --- a fact we will use in Week 3.
+  \item[\textbf{Inner product.}] $\langle x,y\rangle = x^\top y$ in
+        Euclidean space. Norms are induced from inner products via
+        $\|x\| = \sqrt{\langle x,x\rangle}$.
+  \item[\textbf{Eigenvector / eigenvalue.}] $Av = \lambda v$. For
+        symmetric $A$, eigenvectors are orthogonal and eigenvalues
+        are real; we will exploit this repeatedly (PCA, kPCA, MRF
+        analysis).
+  \item[\textbf{Positive (semi)definite matrix.}] $x^\top A x \ge 0$
+        for all $x$. Covariance matrices are PSD. Required as kernel
+        matrices in Week 4.
+  \item[\textbf{Random variable, PDF, CDF.}] If $X$ has PDF $p_X$,
+        then $\Pr(X \le a) = \int_{-\infty}^a p_X(t)\,dt$.
+  \item[\textbf{Gaussian distribution.}]
+        $\mathcal{N}(\mu,\sigma^2)$: $p(x) = \tfrac{1}{\sqrt{2\pi}\sigma}
+         \exp\!\big(-\tfrac{(x-\mu)^2}{2\sigma^2}\big)$.
+  \item[\textbf{Poisson distribution.}]
+        $\Pr(X = k) = \tfrac{\lambda^k e^{-\lambda}}{k!}$.
+        Mean = variance = $\lambda$. Models photon counting.
+  \item[\textbf{Bayes' theorem.}]
+        $p(x \mid y) = p(y \mid x)\,p(x) / p(y)$. The denominator
+        $p(y)$ does not depend on $x$ and is usually ignored when we
+        \emph{maximise} the posterior over $x$.
+  \item[\textbf{MLE vs.\ MAP.}] Maximum-likelihood estimate:
+        $\hat x_{\mathrm{MLE}} = \arg\max_x p(y \mid x)$. Maximum
+        a-posteriori: $\hat x_{\mathrm{MAP}} = \arg\max_x p(y \mid x)\,p(x)$.
+        MAP $=$ MLE plus a prior.
+  \item[\textbf{Gradient descent.}] $x_{k+1} = x_k - \eta \nabla f(x_k)$,
+        $\eta > 0$ a step size.
+\end{description}
+
+\subsection{Pointers}
+
+3Blue1Brown's \emph{Essence of Linear Algebra} is the right intuition
+playlist; StatQuest's videos on probability vs.\ likelihood and on
+Bayes' theorem are the right intuition for probability. For depth, MIT
+OCW 18.06 (Strang) and 6.041 (Tsitsiklis) are still the gold standard.
+The full per-week resource list is in \texttt{week\_1/Readme.md}.
+
+% =============================================================
+\section{Weeks 1.5--3 (\texttt{week\_1.5\_to\_3}), part 1 --- Statistical priors and image denoising}
+% =============================================================
+
+\subsection{Big picture}
+
+Week 2 is the first time we use \eqref{eq:bayes-image} for real. The
+problem is \emph{denoising}: given a noisy image $y$, recover a
+clean image $\hat x$.
+
+We need two ingredients:
+\begin{enumerate}[nosep, leftmargin=*]
+  \item A \textbf{noise model} $p(y \mid x)$, that depends on the
+        modality. Gaussian for thermal noise; Poisson for
+        photon-counting (X-ray, CT, microscopy); Rician for the
+        magnitude of an MRI image; Compound-Poisson for
+        polychromatic CT; Rician/Rayleigh/K for ultrasound.
+  \item A \textbf{prior} $p(x)$ that encodes what a ``plausible''
+        image looks like --- usually a mixture of (i) intensities vary
+        smoothly inside organs and (ii) large jumps are allowed only
+        across organ boundaries.
+\end{enumerate}
+
+The right mathematical object for the prior is a \textbf{Markov
+Random Field (MRF)}. An MRF is a probability distribution over an
+image (treated as a vector of $N$ random variables, one per pixel)
+in which each pixel is conditionally independent of all distant
+pixels given its neighbours. By the \textbf{Hammersley--Clifford
+theorem}, every (positive) MRF can be written as a
+\textbf{Gibbs distribution},
+\begin{equation}
+  p(x) = \tfrac{1}{Z}\exp\!\Big(-\tfrac{1}{T}\sum_{c \in C} V_c(x_c)\Big),
+  \label{eq:gibbs}
+\end{equation}
+where the sum is over \emph{cliques} $c$ (subsets of pixels that are
+all pairwise neighbours), $V_c$ are \emph{clique potentials} you get
+to design, $T$ is a temperature, and $Z$ is the normalising
+\emph{partition function}.
+
+Different choices of clique potential give different priors. A
+quadratic potential $V(x_i, x_j) = (x_i - x_j)^2$ gives a
+\textbf{Gaussian MRF}; it strongly penalises any intensity jump and
+therefore blurs edges. \textbf{Edge-preserving} potentials
+(Huber, generalised Gaussian, truncated quadratic, Mumford--Shah) cap
+the penalty for large jumps and so preserve organ boundaries.
+\textbf{Ising} (binary labels) and \textbf{Potts} (multi-label) priors
+do the analogous job for segmentation, which we will use in Week 4.
+
+Putting it together, \textbf{Bayesian denoising = MAP estimation}:
+\begin{equation}
+  \hat x = \arg\max_x p(y \mid x)\,p(x)
+         = \arg\min_x \big[\underbrace{-\log p(y \mid x)}_{\text{data fidelity}} \;+\;
+                     \underbrace{-\log p(x)}_{\text{regularisation}}\big].
+\end{equation}
+
+The negative-log Gibbs prior \emph{is} the regulariser you have
+already seen in machine learning. A Gaussian prior gives $\ell^2$
+(Tikhonov / ridge) regularisation; a Laplace prior on pixel
+differences gives \emph{total variation (TV)} ($\ell^1$); an MRF with
+edge-preserving potentials gives a robust regulariser.
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Random field.}] A collection of random variables
+        $\{X_i\}$ indexed by sites $i$ on a grid.
+  \item[\textbf{Neighbourhood system.}] For each site $i$, a set
+        $N_i$ of neighbouring sites. 4-/8-neighbour in 2D;
+        6-/18-/26-neighbour in 3D.
+  \item[\textbf{Clique.}] A subset of sites that are all pairwise
+        neighbours (so for a 4-neighbour 2D system, cliques are
+        singletons and edges only).
+  \item[\textbf{Markov property.}] $p(x_i \mid x_{S\setminus\{i\}}) =
+        p(x_i \mid x_{N_i})$.
+  \item[\textbf{Hammersley--Clifford theorem (1971).}] Under
+        positivity ($p(x) > 0$), an MRF and a Gibbs distribution on
+        the same neighbourhood system are the same object.
+  \item[\textbf{Clique potential $V_c$.}] A scalar function over the
+        values of pixels in a clique $c$; you design these to encode
+        ``smoothness'' or ``sparsity'' or ``label agreement''.
+  \item[\textbf{Partition function $Z$.}] The normaliser in
+        \eqref{eq:gibbs}. Almost always intractable to compute in
+        closed form; we can still optimise the energy without ever
+        evaluating $Z$.
+  \item[\textbf{Ising / Potts model.}] Binary / multi-label MRFs
+        whose clique potential is $V(x_i,x_j) = \mathbb{1}[x_i \neq x_j]$.
+  \item[\textbf{Gaussian MRF.}] Quadratic potentials; closed-form
+        posterior; smooths edges.
+  \item[\textbf{Edge-preserving prior.}] Potential that grows slowly
+        (or saturates) for large differences. Huber:
+        $V(t) = t^2/2$ for $|t|\le\delta$ and $\delta|t| - \delta^2/2$
+        otherwise.
+  \item[\textbf{Gaussian noise.}] $y_i = x_i + \epsilon_i$ with
+        $\epsilon_i \sim \mathcal{N}(0,\sigma^2)$, i.i.d.
+  \item[\textbf{Poisson noise.}] $y_i \sim \mathrm{Poisson}(\lambda_i)$
+        with $\lambda_i$ a function of the underlying intensity $x_i$
+        and the imaging geometry.
+  \item[\textbf{Compound Poisson.}] Sum of $N$ i.i.d.\ random
+        variables where $N$ itself is Poisson; arises in
+        polychromatic CT.
+  \item[\textbf{Rician distribution.}] Distribution of the magnitude
+        $\sqrt{a^2 + b^2}$ when $(a,b) \sim \mathcal{N}((\nu\cos\phi,\nu\sin\phi),\sigma^2 I)$.
+        Its PDF involves the modified Bessel function $I_0$. Used for
+        MRI magnitude images. Reduces to Rayleigh when $\nu = 0$.
+  \item[\textbf{Signal-to-noise ratio.}] $\mathrm{SNR} = \E[X] / \mathrm{SD}(X)$.
+        For Poisson, $\mathrm{SNR} = \sqrt{\lambda}$.
+  \item[\textbf{Total variation (TV).}] Regulariser
+        $\mathrm{TV}(x) = \sum_i \|\nabla x\|_2$ (isotropic) or
+        $\sum_i (|x_{i+1}-x_i| + |x_{i+\text{row}}-x_i|)$ (anisotropic).
+        Promotes piecewise-constant images.
+  \item[\textbf{Non-local means.}] A denoising algorithm that
+        averages each pixel with all pixels whose \emph{patch} is
+        similar; not strictly MAP, but a beautifully simple
+        algorithm rooted in self-similarity.
+\end{description}
+
+\subsection{Pointers}
+
+Bouman's free PDF \emph{Model-Based Image Processing} is the natural
+textbook for this week and Week 3. Geman \& Geman (1984) and Buades et
+al.\ (2005) are the two classical papers to read if you want depth.
+The Gudbjartsson \& Patz (1995) Rician note is a beautiful 4-page
+read.
+
+% =============================================================
+\section{Weeks 1.5--3 \& Week 3 --- Inverse problems (\texttt{week\_1.5\_to\_3}) and CT/MRI physics (\texttt{week\_3})}
+% =============================================================
+
+\subsection{Big picture}
+
+In Week 2 we recovered $\hat x$ from a noisy version of itself.
+In Week 3 we make it harder: we observe $y$ that has gone through a
+\emph{forward operator} $G$ that scrambles the image:
+\begin{equation}
+  y = Gx + n.
+  \label{eq:fwd}
+\end{equation}
+This is called an \textbf{inverse problem}. In CT, $G$ is the discrete
+Radon transform (sum of all line integrals through the patient); in
+MRI, $G$ is a (typically under-sampled) 2D Fourier transform. In both
+cases $G$ may be \emph{rank-deficient} (you don't get enough
+measurements to invert) or \emph{ill-conditioned} (small noise in
+$y$ blows up in $\hat x$). This is what ``\textbf{ill-posed}'' means.
+
+\textbf{MAP reconstruction} fixes ill-posedness by adding a prior:
+\begin{equation}
+  \hat x = \arg\min_x \;\;\tfrac{1}{2\sigma^2}\|Gx - y\|_2^2 \;+\; \lambda \, R(x),
+  \label{eq:map-recon}
+\end{equation}
+where $R(x)$ is the negative-log Week-2 prior (Tikhonov,
+edge-preserving MRF, TV, dictionary, $\ldots$) and $\lambda$
+trades data-fidelity against the prior.
+
+To solve \eqref{eq:map-recon} you need
+\textbf{multivariate gradient descent} (and friends: Newton,
+quasi-Newton, ADMM, primal-dual). The gradient of the data term is
+\begin{equation}
+  \nabla_x \tfrac{1}{2}\|Gx - y\|_2^2 \;=\; G^\top (Gx - y).
+\end{equation}
+Derive it once by hand using the chain rule with
+$w := Gx - y, f := \tfrac12 w^\top w$. For MRI, $x$ is
+complex-valued, and you need to be careful with what
+``\emph{gradient of a real-valued function of a complex argument}''
+means; this is the only place the
+\textbf{Cauchy--Riemann equations} show up in this course.
+
+\subsection{CT physics}
+
+X-rays are short-wavelength electromagnetic radiation. When an X-ray
+of intensity $I_0$ passes through a thin slab of tissue of thickness
+$\Delta x$ with \textbf{attenuation coefficient} $A(x)$, a fraction
+$A(x)\Delta x$ of the photons get absorbed. This linear relationship,
+in the infinitesimal limit, is the
+\textbf{Beer--Lambert law}:
+\begin{equation}
+  I_1 \;=\; I_0 \,\exp\!\Big(-\!\int_{x_0}^{x_1} A(x)\,dx\Big).
+  \label{eq:beer}
+\end{equation}
+A single X-ray therefore gives you a \emph{line integral} of $A$. One
+projection is not enough to recover $A(\cdot)$; to do tomography,
+the scanner takes many such projections from many angles. The
+collection of all line integrals at all angles is the
+\textbf{Radon transform} of the image.
+
+The \textbf{Fourier slice theorem} says that the 1D Fourier transform
+of a 1D parallel projection at angle $\theta$ equals a 1D radial
+slice through the 2D Fourier transform of the image at the same
+angle. This is the basis of \textbf{filtered back-projection (FBP)} ---
+the direct, non-iterative CT reconstruction algorithm. Iterative
+\textbf{algebraic reconstruction (ART)} and MAP estimation are the
+alternatives, used when the data are sparse-view, low-dose, or
+metal-corrupted.
+
+\subsection{MRI physics}
+
+The human body is mostly water, and water is rich in $^1$H
+hydrogen nuclei (protons). A spinning proton has a magnetic dipole
+moment; placed in a strong static magnetic field $B_0$, the dipoles
+align and \emph{precess} around $B_0$ at the
+\textbf{Larmor frequency} $\omega_0 = \gamma B_0$, where $\gamma$ is
+the gyromagnetic ratio. For $^1$H, $\gamma \approx 42.58$ MHz/T, so
+at 3 T you have $\omega_0 \approx 128$ MHz.
+
+The dynamics of the aggregate magnetisation
+$\mathbf{M}(t) = (m_x, m_y, m_z)$ are described by the
+\textbf{Bloch equations}: a system of ODEs containing three terms ---
+precession, longitudinal relaxation toward $m_{eq}$ with time
+constant $T_1$, and transverse relaxation toward $0$ with time
+constant $T_2$. $T_1$ and $T_2$ depend on tissue, which is why MRI
+can distinguish soft tissues. A short RF pulse tips
+the magnetisation into the transverse plane; gradient fields encode
+spatial position into the precession frequency
+(\emph{frequency encoding}) and phase
+(\emph{phase encoding}). Each MRI measurement is one complex sample
+in \textbf{$k$-space} (the 2D/3D Fourier domain of the image). An
+\emph{inverse FFT} of a complete $k$-space dataset gives the image.
+
+When we sub-sample $k$-space (to image faster), the inverse FFT
+aliases; the cure is to combine the sparse measurement with a prior
+that gives a unique solution --- the
+\textbf{compressed-sensing MRI} story that you will meet at the end
+of the week.
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Forward operator $G$.}] The matrix that maps the
+        unknown image to the measurement. Radon transform for CT;
+        Fourier transform for MRI.
+  \item[\textbf{Ill-posed.}] Either no solution exists, the solution
+        is not unique, or it does not depend continuously on the
+        data (Hadamard's definition).
+  \item[\textbf{Tikhonov regularisation.}] $R(x) = \|x\|_2^2$ (or
+        $\|Lx\|_2^2$ for some linear $L$, e.g.\ a gradient).
+  \item[\textbf{Total variation (TV).}] $R(x) = \|\nabla x\|_1$. The
+        $\ell^1$ on gradients makes the prior sparse on edges.
+  \item[\textbf{Line search.}] Pick the step size $\eta$ in gradient
+        descent by minimising $f(x_k - \eta g_k)$ along the ray.
+        Variants: backtracking, golden-section, Newton's method.
+  \item[\textbf{Matrix calculus.}] The Jacobian
+        $\partial f / \partial x$ has $m$ rows (outputs) and $n$
+        columns (inputs); the gradient of a scalar function is the
+        transpose of the Jacobian (so it lives in the same space as
+        $x$).
+  \item[\textbf{Cauchy--Riemann equations.}] $u_x = v_y$,
+        $u_y = -v_x$ for $f(x+iy) = u(x,y) + iv(x,y)$ to be
+        complex-differentiable. We invoke them only to justify
+        treating complex MRI gradients via the
+        ``\emph{complex-as-doubled-real}'' trick.
+  \item[\textbf{Attenuation coefficient.}] Local rate of photon
+        absorption per unit length. Units: $1/\text{length}$.
+  \item[\textbf{Hounsfield unit.}] Affine rescaling of attenuation
+        coefficient with water at $0$ HU and air at $-1000$ HU.
+  \item[\textbf{Beer--Lambert law.}] Eq.~\eqref{eq:beer}.
+  \item[\textbf{Radon transform.}] Collection of all parallel
+        line-integrals through an image at all angles.
+  \item[\textbf{Fourier slice theorem.}] Links 1D projections to 2D
+        Fourier slices; the theoretical basis of FBP.
+  \item[\textbf{Filtered back-projection (FBP).}] Closed-form CT
+        reconstruction by applying a ramp filter to each projection,
+        then back-projecting.
+  \item[\textbf{ART (algebraic reconstruction).}] Iteratively project
+        the current estimate onto each measurement constraint;
+        converges to a least-norm solution.
+  \item[\textbf{Larmor frequency.}] $\omega_0 = \gamma B_0$.
+  \item[\textbf{Bloch equations.}] ODEs for the magnetisation vector;
+        contain $T_1$ and $T_2$ relaxation times.
+  \item[\textbf{$T_1$ / $T_2$.}] Tissue-dependent relaxation times.
+        $T_1$ governs longitudinal recovery, $T_2$ transverse decay.
+  \item[\textbf{$k$-space.}] The 2D/3D Fourier domain of the image;
+        what the MRI scanner actually samples.
+  \item[\textbf{Compressed sensing.}] Recover a signal from
+        sub-Nyquist samples by exploiting sparsity in some
+        transform domain.
+\end{description}
+
+\subsection{Pointers}
+
+Kak \& Slaney's \emph{Principles of Computerized Tomographic Imaging}
+and Bouman's \emph{MBIP} are the two free textbooks to keep at hand.
+For MRI, watch any one of Allen Ye's videos and read the iMaios
+$k$-space explainer; for compressed sensing read the Lustig--Donoho
+SparseMRI paper.
+
+% =============================================================
+\section{Week 4 (\texttt{week\_4}) --- Shape, classical segmentation, registration, kernels}
+% =============================================================
+
+\subsection{Big picture}
+
+We now switch from \emph{recovering an image} to \emph{recovering
+structure}: which voxels belong to which tissue
+(\textbf{segmentation}), how a population of anatomical structures
+varies in geometry (\textbf{shape analysis}), how to align two scans
+to the same coordinate frame (\textbf{registration}), and an extra
+toolkit (\textbf{kernel methods}) that everything from SVMs to kernel
+PCA to many shape models depends on.
+
+\subsubsection{Segmentation}
+
+The simplest segmenter is \textbf{$k$-means clustering}: partition
+$N$ feature vectors $\{x_n\}$ into $K$ clusters by minimising
+\begin{equation}
+  \sum_{k=1}^{K}\sum_{n \in S_k} \|x_n - \mu_k\|_2^2.
+\end{equation}
+Solved by alternating optimisation: fix means, update assignments
+(each point goes to nearest mean); fix assignments, update means (set
+each $\mu_k$ to the centroid of its cluster). It always converges (to
+a local minimum); finding the global minimum is NP-hard.
+\textbf{$k$-means++} is a clever initialisation that gives a
+provable approximation factor. \textbf{$k$-medoids} replaces means
+by data points and gives outlier robustness. The Voronoi cells of
+the means partition feature space; if you switch the distance from
+Euclidean to Manhattan, you switch from straight-edge to
+axis-aligned cells.
+
+\textbf{Gaussian Mixture Models (GMMs)} are the soft-assignment
+generalisation: each cluster is a Gaussian, points have a
+\emph{posterior probability} of belonging to each cluster, and the
+parameters are estimated by the \textbf{Expectation--Maximisation
+(EM)} algorithm. EM is a coordinate-ascent algorithm on a lower
+bound of the log-likelihood (the same machinery you will reuse in
+Week 6 for the VAE's ELBO).
+
+\textbf{Graph cuts} formulate segmentation as min-cut / max-flow on a
+graph whose edges encode unary (label likelihood) and pairwise
+(smoothness) potentials --- in other words, MAP inference on an
+MRF with binary or multi-label cliques. \textbf{Spectral clustering}
+uses the eigenvectors of the graph Laplacian instead. \textbf{Level
+sets} (Chan--Vese, Mumford--Shah) evolve an implicit curve by a PDE
+whose driving force is an energy.
+
+\subsubsection{Shape analysis}
+
+A \textbf{shape} is what remains of an outline after you remove
+translation, rotation, and isotropic scale --- formally, an
+equivalence class under the
+\textbf{similarity group}. We represent a shape by an ordered
+\textbf{pointset} of landmarks placed consistently across all
+subjects; that fixes correspondences and lets us write each shape
+as a vector in $\R^{DN}$.
+
+To remove the nuisance transformations we use
+\textbf{Procrustes analysis}: translate to the origin, scale to
+unit norm, and rotate to minimise the sum-of-squared distances to a
+reference shape (closed form via SVD of the cross-covariance).
+\textbf{Generalised Procrustes Analysis (GPA)} aligns all shapes
+to a moving mean iteratively. After alignment, the shapes live near
+a single point on a high-dimensional sphere, and a
+\textbf{tangent-space approximation} lets us run linear PCA on
+them. The principal components are the \textbf{modes of shape
+variation}; walking $\pm 2\sigma$ along each mode is the
+classic visualisation. The model that does all of this is the
+\textbf{Active Shape Model (ASM)}; if you add per-vertex intensity
+information you get the \textbf{Active Appearance Model (AAM)}.
+
+\subsubsection{Registration}
+
+Given two images $R(x)$ and $T(x)$, find a transformation
+$\phi: \Omega \to \Omega$ that ``aligns'' $T \circ \phi$ to $R$.
+Transformations are usually rigid, similarity, affine (linear),
+B-spline (parametric non-linear), or \textbf{diffeomorphic} (smooth
+and invertible, the gold standard for medical work). Similarity
+measures depend on modality:
+\textbf{sum-of-squared differences (SSD)} for same modality,
+\textbf{normalised cross-correlation (NCC)} for robustness to
+linear intensity changes, \textbf{mutual information (MI)} for
+\emph{different} modalities (CT $\leftrightarrow$ MRI). Atlas
+building (e.g.\ Talairach for the brain) iteratively registers all
+subjects to a moving mean (same recipe as GPA, but in image space).
+
+\subsubsection{Kernels (supplementary)}
+
+Many of the methods above (and a few in Week 5) are special cases
+of a unified picture. Map data nonlinearly through some
+$\phi : \R^d \to \mathcal{F}$ into a (possibly
+infinite-dimensional) Hilbert space $\mathcal{F}$ and do linear
+methods there. The \textbf{kernel trick} is that you never need to
+construct $\phi$ explicitly --- you just need the inner product
+$k(x,y) = \langle \phi(x), \phi(y) \rangle_{\mathcal{F}}$. The
+classic example is the
+\textbf{RBF (Gaussian) kernel} $k(x,y) = \exp(-\gamma\|x-y\|^2)$,
+whose feature space is infinite-dimensional.
+
+A kernel is admissible iff it is a positive-definite function
+(\textbf{Mercer / Moore--Aronszajn}); the corresponding feature space
+is a \textbf{Reproducing Kernel Hilbert Space (RKHS)}. \textbf{Kernel
+PCA} runs PCA in the RKHS using only the \textbf{Gram matrix}
+$K_{ij} = k(x_i, x_j)$. \textbf{Support Vector Machines (SVMs)} find
+a maximum-margin hyperplane in the RKHS; deriving them goes through
+the \textbf{KKT conditions} of constrained convex optimisation.
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Cluster compactness.}] Within a cluster,
+        $\sum_n \|x_n - c\|^2 = \tfrac{1}{N}\sum_{n,j}\|x_n - x_j\|^2$;
+        the identity that makes $k$-means about pairwise distances
+        as much as about centroids.
+  \item[\textbf{Voronoi diagram.}] Partition of space by ``nearest
+        centre''; the cell shapes depend on the distance.
+  \item[\textbf{Expectation--Maximisation (EM).}] Alternating
+        maximisation of $\E_{q(z)}[\log p(x,z;\theta)] - \KL(q\|p(z|x;\theta))$
+        over $q$ then $\theta$. Same idea reappears in the
+        VAE in Week 6.
+  \item[\textbf{Graph Laplacian.}] $L = D - W$, where $D$ is the
+        degree matrix and $W$ the affinity matrix. Eigenvectors
+        give spectral embeddings.
+  \item[\textbf{Min-cut / max-flow.}] Polynomial-time algorithms for
+        graph cuts in undirected graphs; the workhorse of binary
+        graph-cut segmentation.
+  \item[\textbf{Level set.}] An evolving curve represented as the
+        zero level set of an embedding function $\phi$, governed by
+        a PDE $\partial \phi/\partial t = F\|\nabla\phi\|$.
+  \item[\textbf{Procrustes alignment.}] Closed-form removal of
+        translation, scale, rotation between two pointsets via SVD.
+  \item[\textbf{Tangent space.}] Local linear approximation of a
+        curved manifold (here, shape space).
+  \item[\textbf{Active Shape Model.}] Mean shape $\bar x$ plus
+        principal directions $\{v_k\}$:
+        $x \approx \bar x + \sum_k b_k v_k$.
+  \item[\textbf{Mutual information.}]
+        $\mathrm{MI}(X;Y) = \KL(p_{XY}\|p_X p_Y)$. The right
+        similarity measure for multi-modal registration.
+  \item[\textbf{Diffeomorphism.}] Smooth invertible map with smooth
+        inverse; the gold standard for non-linear medical-image
+        registration.
+  \item[\textbf{Kernel trick.}] Inner products in feature space via
+        $k(x,y)$, never building $\phi$.
+  \item[\textbf{Positive-definite function.}] $\sum_{ij} c_i c_j k(x_i, x_j) \ge 0$
+        for all choices of $\{x_i\}$, $\{c_i\}$.
+  \item[\textbf{RKHS / Moore--Aronszajn.}] Every PD function $k$ is
+        the reproducing kernel of a unique Hilbert space of
+        functions; that's where $\phi(x) := k(x,\cdot)$ lives.
+  \item[\textbf{Gram matrix.}] $K_{ij} = k(x_i, x_j)$; what kernel
+        PCA actually eigendecomposes.
+  \item[\textbf{KKT conditions.}] First-order optimality conditions
+        for constrained convex programs; derived in Boyd \& Vandenberghe
+        ch.\ 5. You meet them when you derive the SVM dual.
+\end{description}
+
+\subsection{Pointers}
+
+Bishop's \emph{Pattern Recognition and Machine Learning} chapters 9
+(clustering, EM) and 12 (PCA) cover most of this. The von Luxburg
+spectral-clustering tutorial is the canonical read. Cootes et al.\
+(1995) is the original ASM paper. For kernels and SVMs, Sch\"olkopf
+\& Smola's \emph{Learning with Kernels} and Boyd \& Vandenberghe's
+\emph{Convex Optimization} (KKT in ch.\ 5) are the references.
+
+% =============================================================
+\section{Weeks 5--6.5 (\texttt{week\_5}), part 1 --- CNNs for medical images}
+% =============================================================
+
+\subsection{Big picture}
+
+A \textbf{convolutional neural network (CNN)} is a stack of layers
+each of which slides one or more small filters (``kernels'') across
+its input, applies a non-linearity, possibly downsamples, and feeds
+the result to the next layer. Two properties make CNNs the right
+inductive bias for images:
+\textbf{translation equivariance} (same filter, applied
+everywhere) and \textbf{locality} (each output pixel depends only
+on a neighbourhood of the input).
+
+For \textbf{classification}, the typical recipe is
+Conv$\to$Norm$\to$ReLU $\to$ Pool repeated $L$ times, then a
+fully-connected head producing class scores. For
+\textbf{segmentation} the classical choice in medical imaging is
+the \textbf{U-Net} (Ronneberger et al., MICCAI 2015): an
+encoder-decoder with skip connections that concatenate
+encoder feature maps to the matching-resolution decoder layer. The
+skips let the decoder recover fine detail that pooling has
+destroyed.
+
+The \textbf{engineering recipe} that wins most medical segmentation
+challenges is \textbf{nnU-Net} (Isensee et al., 2021) --- a U-Net
+plus a careful, dataset-adaptive pipeline (preprocessing,
+augmentation, training schedule, postprocessing). The take-away is
+that in medical imaging, \emph{good engineering of a standard
+architecture often beats a novel architecture}.
+
+Training a CNN means solving a non-convex optimisation problem with
+\textbf{stochastic gradient descent} (and friends: Adam, AdamW).
+Gradients are computed by \textbf{reverse-mode automatic
+differentiation} (the ``backpropagation'' algorithm). The whole
+thing is one giant chain rule on the computational graph.
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Convolution layer.}] Slides a small kernel across the
+        input; each kernel is shared across spatial positions
+        (translation equivariance). Has $C_\text{in} \cdot C_\text{out}
+        \cdot k \cdot k$ parameters for a $k \times k$ 2D kernel.
+  \item[\textbf{Cross-correlation vs.\ convolution.}] DL libraries
+        compute cross-correlation; for learning that's identical to
+        true convolution because the kernel is also learnt.
+  \item[\textbf{Stride / padding / dilation.}] Three knobs that
+        determine output size and receptive field.
+  \item[\textbf{Receptive field.}] Spatial extent of the input that
+        a given output pixel depends on. Grows with depth and
+        dilation.
+  \item[\textbf{Activation.}] Pointwise non-linearity: ReLU
+        $\max(0,x)$; GELU $x \cdot \Phi(x)$ (Gaussian CDF);
+        sigmoid $1/(1+e^{-x})$; softmax (vector $\to$ probability
+        simplex); softplus $\log(1+e^x)$.
+  \item[\textbf{Pooling.}] Downsamples by max or average; mostly
+        replaced by strided convolution in modern nets.
+  \item[\textbf{Normalisation.}] BatchNorm normalises per-channel
+        across a batch; GroupNorm (preferred for small medical
+        batches) per group of channels; InstanceNorm per sample.
+  \item[\textbf{Dice loss.}]
+        $1 - \tfrac{2|P \cap T|}{|P| + |T|}$. Handles class
+        imbalance better than cross-entropy for medical
+        segmentation.
+  \item[\textbf{Backpropagation.}] Apply the chain rule layer-by-layer
+        in reverse to compute all parameter gradients in one pass.
+  \item[\textbf{Adam / AdamW.}] Adaptive-learning-rate optimisers;
+        \emph{AdamW} (decoupled weight decay) is the default for
+        modern training.
+  \item[\textbf{U-Net.}] Encoder-decoder CNN with skip connections,
+        the medical-segmentation workhorse.
+  \item[\textbf{Dice / IoU / Hausdorff 95 / ASSD.}] Segmentation
+        metrics. \emph{Dice} is overlap; \emph{IoU} is intersection
+        over union; \emph{HD95} is the 95th-percentile Hausdorff
+        distance; \emph{ASSD} is average symmetric surface
+        distance.
+\end{description}
+
+\subsection{Pointers}
+
+Stanford CS231n class notes are the right text. 3Blue1Brown's first
+two NN videos for intuition. The original U-Net and nnU-Net papers
+are short and worth reading in full. The MONAI tutorials are the
+fastest path to a working medical-imaging PyTorch pipeline.
+
+% =============================================================
+\section{Weeks 5--6.5 (\texttt{week\_6}), part 2 --- VAEs and GANs}
+% =============================================================
+
+\subsection{Big picture}
+
+A \textbf{generative model} is a probability distribution
+$p_\theta(x)$ over the data $x$ that you can both \emph{score} and
+(usually) \emph{sample} from. Once you have a generative model, you
+have a \emph{learned prior} that you can plug back into the
+Bayesian reconstruction objective \eqref{eq:map-recon} from Week 3.
+
+Two classical deep generative families:
+
+\subsubsection{Variational Autoencoder (VAE)}
+
+Assume $x$ is generated from a latent code $z$ through a decoder
+$p_\theta(x \mid z)$, with a simple prior $p(z) = \mathcal{N}(0,I)$.
+The marginal $p_\theta(x) = \int p_\theta(x \mid z) p(z) dz$ is
+intractable. Introduce an \textbf{encoder}
+$q_\phi(z \mid x) \approx p_\theta(z \mid x)$, and derive the
+\textbf{Evidence Lower Bound (ELBO)}:
+\begin{equation}
+  \log p_\theta(x) \;\ge\; \E_{q_\phi(z|x)}[\log p_\theta(x|z)] \;-\; \KL\big(q_\phi(z|x) \,\|\, p(z)\big).
+  \label{eq:elbo}
+\end{equation}
+Maximise the ELBO over both $\theta$ and $\phi$ jointly with SGD.
+The first term is a \emph{reconstruction} loss; the second is a
+\emph{regulariser} pulling the posterior toward the prior. The only
+trick to make this trainable is the
+\textbf{reparameterisation trick}: write
+$z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon$ with
+$\epsilon \sim \mathcal{N}(0,I)$ so that the stochasticity is
+isolated in $\epsilon$ and gradients flow through $\mu$ and
+$\sigma$.
+
+For two Gaussians $\mathcal{N}(\mu,\sigma^2 I)$ and
+$\mathcal{N}(0,I)$ in $\R^d$,
+\begin{equation}
+  \KL\!\big(\mathcal{N}(\mu,\sigma^2 I) \,\|\, \mathcal{N}(0,I)\big) \;=\; \tfrac{1}{2}\sum_{i=1}^d \big( \sigma_i^2 + \mu_i^2 - 1 - \log\sigma_i^2 \big).
+\end{equation}
+Memorise this; you will reuse it in every VAE you ever write.
+
+\subsubsection{Generative Adversarial Network (GAN)}
+
+A \emph{generator} $G_\theta : \R^d \to \mathcal{X}$ maps noise
+$z \sim p_z$ to samples $G(z)$; a
+\emph{discriminator} $D_\psi : \mathcal{X} \to (0,1)$ tries to
+tell real samples from generated ones. The \textbf{min-max} game is
+\begin{equation}
+  \min_\theta \max_\psi \; \E_{x \sim p_\text{data}}\log D_\psi(x) + \E_{z \sim p_z} \log\!\big(1 - D_\psi(G_\theta(z))\big).
+\end{equation}
+At the optimum (with infinite capacity), $D$ recovers the
+density ratio and $G$ produces samples from $p_\text{data}$. In
+practice, training is unstable; the standard fixes are
+\textbf{WGAN-GP} (Wasserstein objective + gradient penalty),
+\textbf{spectral normalisation} of $D$, \textbf{TTUR}
+(separate learning rates), and the generator EMA. Conditional
+variants (pix2pix, CycleGAN) condition on a second image and are the
+GAN of choice for medical cross-modality synthesis.
+
+\subsubsection{Diffusion models (in one paragraph)}
+
+A diffusion model is a Markov chain that progressively adds
+Gaussian noise to data over $T$ steps; a neural network learns the
+\emph{reverse} step (the denoiser). Trained well, the reverse chain
+samples from $p_\text{data}$. They have largely replaced GANs for
+image synthesis. Their use as a \emph{prior} for medical-image
+reconstruction (e.g.\ Chung \& Ye 2022) is currently one of the
+hottest research areas.
+
+\subsubsection{The thread tying it all together}
+
+Look back at \eqref{eq:map-recon}. Anywhere $R(x)$ appears, you can
+plug in:
+\begin{itemize}[leftmargin=*,nosep]
+  \item a hand-designed MRF energy (Week 2);
+  \item the negative log-density of a VAE;
+  \item the score (gradient of log-density) of a diffusion model.
+\end{itemize}
+The mathematical scaffolding of weeks 2 and 3 \emph{is} the same one
+that frames the most modern reconstruction methods of 2024--26.
+
+\subsection{Vocabulary you will meet}
+
+\begin{description}[leftmargin=*]
+  \item[\textbf{Latent variable.}] An unobserved random variable $z$
+        that \emph{generates} the observation $x$.
+  \item[\textbf{ELBO.}] Eq.~\eqref{eq:elbo}. The thing you maximise.
+  \item[\textbf{Reparameterisation.}] Trick to backprop through
+        $z \sim q_\phi(z|x)$ by writing $z = g_\phi(x, \epsilon)$.
+  \item[\textbf{Posterior collapse.}] A failure mode of VAEs where
+        the decoder ignores $z$ and the encoder outputs the prior.
+  \item[\textbf{$\beta$-VAE.}] Multiply the KL term by $\beta$ to
+        trade reconstruction for disentanglement.
+  \item[\textbf{Mode collapse.}] GAN failure where $G$ produces
+        only one (or a few) outputs.
+  \item[\textbf{WGAN-GP.}] Wasserstein loss with a gradient penalty
+        for stable adversarial training.
+  \item[\textbf{Spectral normalisation.}] Constrain the spectral
+        norm of $D$'s weights to enforce Lipschitzness.
+  \item[\textbf{Pix2pix / CycleGAN.}] Paired and unpaired
+        image-to-image translation GANs.
+  \item[\textbf{DDPM.}] Denoising Diffusion Probabilistic Model
+        (Ho, Jain \& Abbeel 2020).
+  \item[\textbf{Score function.}] $\nabla_x \log p(x)$; what a
+        diffusion / score-based model approximates.
+\end{description}
+
+\subsection{Pointers}
+
+Lilian Weng's blog is the best single source of explainers for VAEs
+and GANs. The original Kingma--Welling (VAE) and Goodfellow (GAN)
+papers are short and worth reading in full. For diffusion, Lilian
+Weng's blog again, plus the DDPM paper. For the medical application
+of generative priors, Chung \& Ye (2022) is the cleanest read.
+
+% =============================================================
+\section{Weeks 6.5--8 (\texttt{week\_7}), part 1 --- Paper reading + guided implementation}
+% =============================================================
+
+\subsection{Big picture}
+
+You now have the vocabulary of weeks 1--6. The point of week 7 is to
+\emph{prove it} by reading a real research paper and reproducing
+one experiment from it. The strongest signal that you understand a
+method is not that you can summarise it --- it's that you can rebuild
+it.
+
+\subsubsection{Reading method}
+
+Use Andrew Ng's three-pass method:
+\begin{enumerate}[nosep, leftmargin=*]
+  \item Pass 1 (5--10 min): title, abstract, figures, conclusions.
+        Decide whether to keep going.
+  \item Pass 2 ($\sim$1 h): read carefully but skip proofs. Write a
+        one-page summary covering: problem, prior work and its
+        limitation, key idea, method, experiments, results,
+        limitations.
+  \item Pass 3 (a day): re-implement the key equation or one
+        experiment. Where you get stuck is exactly where you don't
+        understand it yet.
+\end{enumerate}
+
+\subsubsection{Choosing a paper}
+
+Pick something where:
+\begin{itemize}[leftmargin=*,nosep]
+  \item the problem connects to weeks 2--6 (don't go to a totally
+        new sub-field this week);
+  \item there is \emph{public code} and a \emph{public dataset};
+  \item the paper is \emph{at most 12 pages};
+  \item the venue is MICCAI, MedIA, TMI, IPMI, MIDL, NeurIPS.
+\end{itemize}
+A starter pool is in \texttt{week\_7/Readme.md}; Prof.\ Awate's
+\texttt{Slides\_ProjectTopicExamples.pdf} is another good source.
+
+\subsection{Deliverables}
+
+A one-page summary, hand-written derivations of the central
+equations, a reproduction notebook, and a short note describing the
+gap between the paper's claim and your reproduction.
+
+% =============================================================
+\section{Weeks 6.5--8 (\texttt{week\_8}), part 2 --- Final project}
+% =============================================================
+
+\subsection{Deliverables}
+
+A 6--10 page report, 10--15 talk slides, a clean reproducible
+\texttt{code/} folder (with \texttt{requirements.txt}), a
+\texttt{results/} folder, and a short live demo.
+
+\subsection{Grading dimensions (mirroring CS-736)}
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item Difficulty of the chosen topic.
+  \item Depth of theoretical reading and understanding.
+  \item Depth of empirical analysis: have you compared against a
+        baseline? Have you run on a real test set with appropriate
+        metrics?
+  \item Quality of the slides.
+  \item Reproducibility of the code.
+\end{itemize}
+
+\subsection{Suggested project shapes}
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item Bayesian denoising with a learned prior --- CNN denoiser vs.
+        MRF MAP baseline.
+  \item Under-sampled MRI reconstruction --- model-based unrolled
+        network (e.g.\ MoDL) on fastMRI vs.\ zero-filled baseline.
+  \item Brain-tumour segmentation --- U-Net on BraTS vs.\
+        nnU-Net out-of-the-box.
+  \item Shape-prior segmentation --- ASM (week 4) combined with a
+        CNN initialiser.
+  \item Cross-modality synthesis --- CycleGAN MR$\leftrightarrow$CT
+        on a small paired dataset.
+  \item VAE anomaly detection on chest X-rays.
+\end{itemize}
+
+\subsection{Common mistakes to avoid}
+
+No baseline. Training loss as the headline metric. Tiny test set
+with no confidence interval. No qualitative failure analysis. Code
+that won't run on someone else's machine.
+
+% =============================================================
+\section*{Closing note}
+% =============================================================
+
+\addcontentsline{toc}{section}{Closing note}
+
+You have, over eight weeks, walked from ``what is a pixel'' to
+``score-based diffusion priors for MRI''. The vocabulary you have now
+is enough to read the proceedings of MICCAI cover-to-cover and to
+join, contribute to, or lead, a medical-imaging research project.
+
+Good luck. The work in this field is meaningful; many of the people
+who do it make patients' lives demonstrably better. Take that
+seriously.
+
+\end{document}

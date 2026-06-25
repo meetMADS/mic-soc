@@ -1,0 +1,304 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 4
+%  Image Segmentation: classical approaches
+%  (k-means, GMM/EM, MRF labels, graph cuts, level sets)
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or Overleaf.
+%      pdflatex MIC_Image_Segmentation.tex
+%      pdflatex MIC_Image_Segmentation.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 ImageSegmentation deck, with
+%  attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\title{\textbf{Image Segmentation}\\[2pt]
+\large Classical approaches: clustering, mixtures, graphs, contours\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 4}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+Segmentation asks: \emph{which pixels belong to which structure?} --- label every
+voxel as grey matter, white matter, CSF, tumour, or background. This chapter
+builds the \emph{classical} (non-deep) toolkit, and it is deliberately a
+homecoming: k-means is the simplest prior-free clustering, \textbf{GMM + EM} is
+its probabilistic upgrade, adding an \textbf{MRF prior on the labels} is literally
+the Week-2 Bayesian story applied to discrete labels, and graph cuts turn that
+MRF into an exactly-solvable optimisation. Keep the \deck{ImageSegmentation} deck
+open (the classical methods run through it); do the notebook to watch k-means and
+EM segment a brain slice. Deep segmentation (U-Net) is Week 5 --- but it stands on
+everything here.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{What segmentation is}
+% =====================================================================
+
+To \textbf{segment} an image is to assign every pixel/voxel a label
+\deck{ImageSegmentation, slides 3--6}. In brain MRI the canonical task is the
+three-tissue split --- \textbf{grey matter (GM)}, \textbf{white matter (WM)},
+\textbf{cerebrospinal fluid (CSF)} --- run only on voxels inside a brain mask.
+Each voxel is described by a \textbf{feature} (its intensity, or a small vector of
+local texture features), so segmentation becomes \emph{clustering points in
+feature space} and then mapping the clusters back to the image
+\deck{ImageSegmentation, slide 8}.
+
+A useful distinction up front: a \textbf{hard} segmentation gives each voxel one
+label; a \textbf{soft} (fuzzy) segmentation gives each voxel a \emph{membership}
+--- a probability of belonging to each class. Soft is gentler at boundaries and
+partial-volume voxels (where one voxel straddles two tissues), and it is what EM
+and fuzzy c-means produce.
+
+% =====================================================================
+\section{K-means: the simplest clustering}
+% =====================================================================
+
+\textbf{K-means} partitions $N$ feature points into $K$ clusters by minimising the
+total squared distance to cluster centres $\{\mu_k\}$
+\deck{ImageSegmentation, slides 9--10}:
+\[
+\min_{\{\mu_k\},\,\{a_i\}} \sum_{i=1}^{N} \norm{x_i - \mu_{a_i}}^2,
+\]
+where $a_i\in\{1,\dots,K\}$ is the cluster assignment of point $i$. It is solved
+by \textbf{alternating minimisation}:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Assign:} fix the centres; put each point in the nearest cluster
+  (this carves feature space into a \textbf{Voronoi} partition).
+  \item \textbf{Update:} fix the assignments; move each centre to the mean of its
+  points.
+\end{enumerate}
+Each step can only lower the objective, so it converges --- but only to a
+\emph{local} optimum; the global minimum is NP-hard \deck{ImageSegmentation,
+slide 11}. Initialisation therefore matters: \textbf{k-means++} (spread initial
+centres far apart) and \textbf{farthest-point} seeding give reliably better
+starts, and \textbf{k-medoids} (use an actual data point as the centre) is more
+robust to outliers.
+
+\begin{notebox}[Why the update step is the mean --- and the distance you pick]
+Fix the assignments; the objective for cluster $k$ is $\sum_{i\in k}\norm{x_i-\mu_k}^2$,
+a convex quadratic in $\mu_k$ whose minimiser is exactly the \emph{mean} of the
+cluster --- that is the whole ``update'' step \deck{ImageSegmentation, slide 22}.
+The \emph{distance} is a modelling choice: squared Euclidean ($\ell^2$) gives the
+familiar mean and straight Voronoi boundaries; Manhattan ($\ell^1$) gives the
+\emph{median} and more robust, axis-aligned cells \deck{ImageSegmentation, slides
+15--18}. K-means is fast and intuitive, but it assumes round, equal-size clusters
+and gives only hard labels --- both of which the next method fixes.
+\end{notebox}
+
+% =====================================================================
+\section{Gaussian Mixture Models and the EM algorithm}
+% =====================================================================
+
+K-means cannot model that one tissue is more variable than another, nor give soft
+memberships. The probabilistic upgrade is a \textbf{Gaussian Mixture Model}: model
+the intensities as drawn from a weighted sum of $K$ Gaussians
+\deck{ImageSegmentation, slides 64--66},
+\[
+p(x) = \sum_{k=1}^{K} w_k\,\mathcal{N}(x\mid \mu_k,\Sigma_k),
+\qquad \sum_k w_k = 1,
+\]
+with a class weight $w_k$, mean $\mu_k$, and covariance $\Sigma_k$ (full,
+diagonal, or isotropic) per tissue. Fit it by \textbf{maximum likelihood}, which
+has no closed form for $K>1$ --- so we use \textbf{Expectation--Maximisation (EM)}
+\deck{ImageSegmentation, slides 71--79}:
+\begin{description}[leftmargin=*,nosep]
+  \item[\textbf{E-step.}] With parameters fixed, compute each voxel's
+  \textbf{membership} (the posterior probability it belongs to class $k$),
+  $\gamma_{ik}=\dfrac{w_k\,\mathcal{N}(x_i\mid\mu_k,\Sigma_k)}{\sum_j w_j\,\mathcal{N}(x_i\mid\mu_j,\Sigma_j)}$.
+  \item[\textbf{M-step.}] With memberships fixed, update each class's weight, mean,
+  and covariance as membership-weighted averages.
+\end{description}
+Iterate; the data log-likelihood increases monotonically. The memberships
+$\gamma_{ik}$ \emph{are} the soft segmentation; threshold them for a hard one.
+\textbf{Fuzzy c-means} (FCM) is a closely related cousin that optimises a
+fuzziness-weighted distance objective rather than a likelihood
+\deck{ImageSegmentation, slide 36}.
+
+\begin{notebox}[EM is the same ELBO you will meet in Week 6]
+EM maximises the data likelihood by repeatedly maximising a \emph{lower bound}
+built with Jensen's inequality: the bound is tight when the auxiliary
+distribution equals the posterior (the E-step), and the M-step then maximises it
+\deck{ImageSegmentation, slides 75--79}. That bound is exactly the
+\textbf{ELBO} of the variational autoencoder --- so GMM/EM here and the VAE in
+Week 6 are the same idea with a learned vs a Gaussian decoder. K-means is the
+``hard'' limit of GMM/EM (shrink the variances to zero and memberships become
+$0/1$).
+\end{notebox}
+
+% =====================================================================
+\section{Adding spatial context: bias fields and MRF priors}
+% =====================================================================
+
+Intensity alone is not enough in real MRI for two reasons, and both fixes are
+pure Week-2 Bayesian modelling.
+
+\paragraph{The bias (inhomogeneity) field.} MRI suffers a smooth, multiplicative
+intensity drift across the image (the same tissue looks brighter on one side),
+so a fixed intensity no longer identifies a tissue \deck{ImageSegmentation, slides
+54--63}. Model the data as $y_i = x_i\,b_i + \eta_i$ with a \emph{smooth} bias
+field $b$, and estimate the segmentation \emph{and} the bias together (the
+modified-FCM scheme of assignment \texttt{a3}): the bias estimate is obtained by
+smoothing (a Gaussian convolution), which enforces its spatial smoothness.
+
+\paragraph{An MRF prior on the labels.} Neighbouring voxels usually share a label;
+encode that with a \textbf{Markov Random Field} prior on the label image ---
+an Ising (2-class) or \textbf{Potts} (multi-class) model whose clique potential
+penalises neighbouring voxels having different labels, weighted by $\beta$
+\deck{ImageSegmentation, slides 92--105}. Combine a GMM \emph{likelihood} on
+intensities with an MRF \emph{prior} on labels and fit by EM, where the E-step
+becomes a \textbf{modified ICM} (the same iterated-conditional-modes optimiser
+from Week 2) that updates all labels to increase the posterior. This
+\textbf{HMRF-GMM-EM} model (the second half of assignment \texttt{a3}) is the
+classical workhorse: with $\beta=0$ it reduces to plain GMM/EM; with $\beta>0$ it
+removes salt-and-pepper mislabels and respects boundaries.
+
+% =====================================================================
+\section{Graph-based segmentation}
+% =====================================================================
+
+A different lens treats the image as a \textbf{graph} (voxels are nodes, edges
+join neighbours) and segments by cutting it.
+
+\paragraph{Spectral clustering.} Build an affinity graph, form its
+\textbf{Laplacian}, and use the eigenvectors of the Laplacian as new coordinates
+in which clusters separate; the \textbf{normalised cut} criterion balances cluster
+size \deck{ImageSegmentation, slides 12, 39}. (It is the same eigen-thinking as
+PCA, now on a graph --- and the bridge to kernel methods.)
+
+\paragraph{Graph cuts.} Write the segmentation energy as a sum of \textbf{unary}
+terms (how well a voxel's intensity fits each label) and \textbf{pairwise} terms
+(a penalty when neighbours disagree --- the MRF prior again). For two labels this
+energy is \emph{submodular}, and its exact global minimum is found in polynomial
+time by a \textbf{max-flow / min-cut} on an $s$--$t$ graph
+\deck{ImageSegmentation, slides 109--120}. This is remarkable: graph cuts give the
+\emph{exact} MAP-MRF labelling for binary problems (where ICM only finds a local
+optimum). For more than two labels the problem is NP-hard, but
+\textbf{$\alpha$-expansion} gives a strong approximate solution.
+
+\begin{notebox}[Worked example: the binary graph-cut energy]
+For labels $\ell_i\in\{0,1\}$, minimise
+$E(\ell)=\sum_i U_i(\ell_i) + \sum_{(i,j)} V_{ij}\,[\ell_i\neq\ell_j]$. Build an
+$s$--$t$ graph with the source/sink edges carrying the unary costs and
+neighbour edges carrying $V_{ij}$; the \textbf{minimum $s$--$t$ cut} severs each
+voxel from either source or sink, and its total cost equals $E(\ell)$. So
+``cheapest cut'' $=$ ``best (MAP) labelling'', computed exactly. This is why graph
+cuts dominated interactive medical segmentation before deep learning.
+\end{notebox}
+
+% =====================================================================
+\section{Level sets (active contours without edges)}
+% =====================================================================
+
+A complementary family evolves a \emph{contour} rather than labelling pixels.
+\textbf{Level-set} methods represent the boundary implicitly as the zero
+level-set of a function and evolve it by a PDE to minimise an energy. The
+\textbf{Chan--Vese} model is region-based: it moves the contour so that the
+intensities inside and outside are each as uniform as possible --- no reliance on
+sharp edges, which is ideal for noisy medical images \deck{ImageSegmentation,
+slides 43--48 region}. Level sets handle topology changes (splitting/merging
+regions) naturally, at the cost of careful numerics.
+
+% =====================================================================
+\section{The modern bridge}
+% =====================================================================
+
+Today a CNN \textbf{U-Net} (Week 5) often beats these classical methods on
+accuracy when labelled data is plentiful, and foundation models like
+\textbf{SAM/MedSAM} segment from prompts. But the classical toolkit has not
+retired: it needs \emph{no} training data, it is interpretable, and it supplies
+the \textbf{shape and smoothness priors} that regularise deep predictions (an MRF
+or graph-cut clean-up on a CNN's output, or a shape model from this week's
+companion chapter constraining a network). The deep and classical families
+combine more often than they compete.
+
+\begin{notebox}[Common pitfalls]
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Initialisation \& $K$.} K-means/EM are local optimisers; use
+  k-means++ seeding and try a few restarts; pick $K$ from the anatomy.
+  \item \textbf{Overlapping intensities.} GM/WM/CSF intensities overlap; intensity
+  alone mislabels --- this is exactly why the MRF prior (spatial context) helps.
+  \item \textbf{Bias field.} Ignoring MRI inhomogeneity makes one tissue look like
+  two; estimate it jointly.
+  \item \textbf{Evaluation.} Score with \textbf{Dice}/IoU against a reference, not
+  pixel accuracy (background dominates).
+\end{itemize}
+\end{notebox}
+
+\begin{keybox}[Do the notebook (and Project 2)]
+\texttt{notebooks/02\_kmeans\_gmm\_em\_segmentation.ipynb} (NumPy + Matplotlib)
+segments a synthetic 3-tissue brain slice with \textbf{k-means} and then
+\textbf{GMM/EM}, shows soft memberships, and adds an \textbf{MRF/ICM} smoothing
+pass to clean up the labels. \textbf{Project 2} (\texttt{week\_6}) is the real
+thing on brain-MRI data --- the toned-down version of assignment \texttt{a3}'s
+HMRF-GMM-EM.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{Clustering, GMM, EM}
+\begin{itemize}[nosep,leftmargin=*]
+  \item StatQuest, \href{https://www.youtube.com/watch?v=4b5d3muPQmA}{\emph{K-means}} and \href{https://www.youtube.com/watch?v=REypj2sy_5U}{\emph{GMM/EM}} (intuition).
+  \item Bishop, \emph{Pattern Recognition \& ML}, ch.~9 (k-means, GMM, EM --- the canonical treatment).
+\end{itemize}
+
+\textbf{Graph-based}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Boykov \& Funka-Lea (2006), \href{https://link.springer.com/article/10.1007/s11263-006-7934-5}{\emph{Graph Cuts and Efficient N-D Image Segmentation}}.
+  \item von Luxburg (2007), \href{https://arxiv.org/abs/0711.0189}{\emph{A Tutorial on Spectral Clustering}}.
+\end{itemize}
+
+\textbf{Level sets}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Getreuer, \href{https://www.ipol.im/pub/art/2012/g-cv/}{\emph{Chan--Vese segmentation}} (IPOL, with code); Chan \& Vese (2001), \emph{Active Contours Without Edges}.
+\end{itemize}
+
+\textbf{Modern bridge}
+\begin{itemize}[nosep,leftmargin=*]
+  \item Ronneberger et al.\ (2015), \href{https://arxiv.org/abs/1505.04597}{\emph{U-Net}}; \href{https://www.mdpi.com/2306-5354/12/12/1312}{SAM for medical image segmentation} (review).
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736
+ImageSegmentation deck, with attribution. For mentee use on this project; please
+do not redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

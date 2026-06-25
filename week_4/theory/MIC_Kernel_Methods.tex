@@ -1,0 +1,313 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Week 4 (supplementary)
+%  Kernel Methods: the kernel trick, RKHS, SVMs, and Kernel PCA
+%
+%  Self-contained handbook chapter.  Compile with pdflatex (twice) or Overleaf.
+%      pdflatex MIC_Kernel_Methods.tex
+%      pdflatex MIC_Kernel_Methods.tex
+%
+%  Built from Prof. Suyash P. Awate's CS-736 KernelMethods deck, with
+%  attribution, for the use of mentees on this project.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black,
+            citecolor=blue!45!black]{hyperref}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue!32!black}}{\thesubsection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+\newtcolorbox{notebox}[1][Aside]{colback=black!3!white,colframe=black!45!white,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.5pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\inner}[2]{\langle #1,\,#2\rangle}
+\newcommand{\deck}[1]{\textsf{\small[#1]}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{\textbf{Kernel Methods}\\[2pt]
+\large The kernel trick, RKHS, SVMs, and Kernel PCA\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code -- Week 4 (supplementary)}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{keybox}[How to read this chapter]
+This is the supplementary mathematical capstone of Week 4. Its one big idea is
+beautiful and reusable: when your data is too tangled for a \emph{linear} method,
+secretly map it into a much higher-dimensional space where it \emph{becomes}
+linear --- and do it without ever paying for that space, using a \textbf{kernel}.
+The same trick upgrades clustering (kernel k-means), dimensionality reduction
+(\textbf{kernel PCA}), classification (\textbf{SVMs}), regression (kernel ridge),
+and the shape models of this week's main chapter. Keep the \deck{KernelMethods}
+deck open; do the kernel-PCA notebook, where linear PCA fails on two moons and a
+kernel pulls them apart. You will also recognise old friends: RKHS, positive
+definiteness, and Gram matrices all came up in Weeks 1--4.
+\end{keybox}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{When linear methods fail}
+% =====================================================================
+
+Two complementary modelling styles run through machine learning
+\deck{KernelMethods, slides 3--4}: \textbf{generative} (model each class's
+distribution, e.g.\ a Gaussian per cluster, and assign a test point to the
+highest-density class) and \textbf{discriminative} (model the boundary directly,
+e.g.\ a separating hyperplane as in an SVM). Both have a linear comfort zone, and
+both break outside it \deck{KernelMethods, slide 5}: a discriminative hyperplane
+cannot separate classes whose true boundary is a curve, and a single Gaussian
+cannot model a cluster that is a ring or a crescent rather than an ellipsoid.
+Kernel methods are how we keep the simple linear machinery while handling these
+nonlinear cases.
+
+% =====================================================================
+\section{The feature-map idea}
+% =====================================================================
+
+The move is to \textbf{map the data into a higher-dimensional space} where the
+nonlinear problem becomes linear \deck{KernelMethods, slides 6--7}. The classic
+picture: two classes arranged as concentric rings in 2D cannot be split by any
+line, but lift each point $[x,y]$ to $[x,\,y,\,x^2+y^2]$ and the inner ring rises
+to a different height than the outer one --- now a flat plane separates them
+cleanly. More generally, choose a feature map $\phi(\cdot)$ so that, in the mapped
+space, the clusters are ellipsoidal (good for Gaussians) or linearly separable
+(good for hyperplanes). The catch: a map powerful enough to do this is usually
+\emph{very} high- (even infinite-) dimensional, so computing and storing
+$\phi(x)$ explicitly is hopeless.
+
+% =====================================================================
+\section{The kernel trick}
+% =====================================================================
+
+Here is the escape \deck{KernelMethods, slide 8}. Almost every linear algorithm
+(PCA, SVM, ridge regression, k-means) can be rewritten so that data appears
+\emph{only} through \textbf{inner products} $\inner{x}{y}$. So if we have a
+function that returns the inner product \emph{in the mapped space} without
+building $\phi$,
+\[
+k(x,y) = \inner{\phi(x)}{\phi(y)},
+\]
+we can run the whole algorithm on $k$ and never touch $\phi(x)$. That function is
+the \textbf{kernel}, and using it in place of explicit features is the
+\textbf{kernel trick}. The identity map gives the ordinary dot product
+$k(x,y)=\inner{x}{y}$; the workhorse nonlinear choice is the \textbf{Gaussian} /
+\textbf{radial basis function (RBF)} kernel
+\[
+k(x,y) = \exp\!\big(-a\,\norm{x-y}^2\big),
+\]
+whose implicit feature space is \emph{infinite}-dimensional \deck{KernelMethods,
+slide 9}. In practice you \emph{choose the kernel first} and never write $\phi$
+down at all.
+
+\begin{notebox}[Worked example: the RBF kernel hides an infinite feature map]
+Expand a polynomial kernel $k(x,y)=(\inner{x}{y})^2$ in 2D: it equals
+$\inner{\phi(x)}{\phi(y)}$ for $\phi(x)=(x_1^2,\sqrt2\,x_1x_2,x_2^2)$ --- a
+\emph{finite} lift you could write out. The RBF kernel is the limit of this idea
+to all polynomial degrees at once: its $\phi$ has infinitely many coordinates, so
+you truly \emph{cannot} write it down --- yet $k(x,y)=e^{-a\norm{x-y}^2}$ is a
+one-line computation. That gap (a one-line kernel standing in for an infinite
+feature vector) is the whole payoff.
+\end{notebox}
+
+% =====================================================================
+\section{What makes a kernel valid: inner products, Hilbert space, RKHS}
+% =====================================================================
+
+Not every two-argument function is a legal kernel; it must be the inner product
+of \emph{some} feature map. The structure that guarantees this is a
+\textbf{Hilbert space} --- a vector space equipped with an inner product
+\deck{KernelMethods, slides 10--12}. An inner product must satisfy three axioms:
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{conjugate symmetry} $\inner{f}{g}=\overline{\inner{g}{f}}$;
+  \item \textbf{linearity} in the first argument;
+  \item \textbf{positive definiteness} $\inner{f}{f}\ge0$, with equality only for
+  the zero element.
+\end{enumerate}
+From an inner product you get lengths and angles (and hence distances), which is
+all any of our geometric algorithms need.
+
+The precise object is a \textbf{Reproducing Kernel Hilbert Space (RKHS)}
+\deck{KernelMethods, slides 14--16}: a Hilbert space of functions in which
+evaluation is continuous, represented by a \textbf{reproducing kernel}
+$k(x,\cdot)$ with the magic \emph{reproducing property} $\inner{k(x,\cdot)}{k(y,\cdot)}=k(x,y)$.
+The chain of facts to remember:
+\begin{itemize}[nosep,leftmargin=*]
+  \item every reproducing kernel \emph{is} a kernel (take $\phi(x)=k(x,\cdot)$);
+  \item every kernel is a \textbf{positive-definite (PD)} function, because
+  $\inner{\sum_i a_i\phi(x_i)}{\sum_i a_i\phi(x_i)}=\norm{\sum_i a_i\phi(x_i)}^2\ge0$;
+  \item conversely (the \textbf{Moore--Aronszajn} theorem, the kernel analogue of
+  Mercer's theorem), \emph{every} symmetric PD function is the reproducing kernel
+  of a unique RKHS.
+\end{itemize}
+So the practical test ``is my $k$ a valid kernel?'' becomes ``is $k$ symmetric and
+positive-definite?'' --- and PD-ness is the same property you met for covariance
+and Gram matrices in earlier weeks.
+
+% =====================================================================
+\section{Support Vector Machines (briefly)}
+% =====================================================================
+
+The most famous kernel method is the \textbf{Support Vector Machine}
+\deck{KernelMethods, slide 4}. For linearly separable classes the SVM finds the
+\textbf{maximum-margin} hyperplane --- the separator with the widest empty gap on
+both sides --- which generalises better than an arbitrary separator. Solving it is
+a constrained convex optimisation whose \textbf{KKT conditions} (the
+inequality-constrained optimality conditions from the segmentation chapter)
+reveal that the solution depends only on a few boundary points, the
+\textbf{support vectors}. Crucially, the SVM's data appears only through inner
+products, so \emph{kernelising} it --- replace $\inner{x}{y}$ by $k(x,y)$ --- yields
+a nonlinear classifier (e.g.\ an RBF-SVM with curved boundaries) for free. SVMs
+were the dominant classifier before deep learning and remain excellent on small,
+tabular, or feature-engineered medical data.
+
+% =====================================================================
+\section{Kernel PCA}
+% =====================================================================
+
+Recall \textbf{PCA}: centre the data, form the sample covariance, and take its
+top eigenvectors as the directions of greatest variation \deck{KernelMethods,
+slide 21}. It is perfect for ellipsoidal (Gaussian) data and poor for anything
+curved --- a ring's principal axes tell you nothing useful \deck{KernelMethods,
+slide 22}. \textbf{Kernel PCA} does PCA in the mapped space, capturing
+\emph{nonlinear} structure \deck{KernelMethods, slides 23--27}.
+
+The trick is that each eigenvector $V$ of the covariance in feature space must lie
+in the \emph{span of the mapped data}, $V=\sum_i \alpha_i\phi(x_i)$, so we only
+need the coefficients $\alpha$. Substituting reduces the whole eigenproblem to one
+on the $N\times N$ \textbf{Gram matrix} $G_{ij}=\inner{\phi(x_i)}{\phi(x_j)}=k(x_i,x_j)$:
+\[
+M\lambda\,\alpha = G\,\alpha,
+\]
+i.e.\ the kernel-PCA components are the eigenvectors of the (centred) Gram matrix
+--- computed entirely from kernel evaluations, never from $\phi$. A new point is
+projected by the ``feature'' $\inner{\phi(x)}{V}=\sum_i\alpha_i\,k(x_i,x)$. Plotting
+these features over the input space shows \emph{nonlinear} modes of variation that
+adapt to the data's shape, and projecting onto the top kernel-PCA components
+separates non-ellipsoidal clusters that linear PCA cannot \deck{KernelMethods,
+slides 25--27}.
+
+\begin{notebox}[Why ``eigenvector lies in the span of the data'' works]
+The covariance $C=\frac1M\sum_i\phi(x_i)\phi(x_i)^{\!\top}$ acts on any vector by
+taking inner products with the $\phi(x_i)$, so $CV$ is automatically a combination
+of the $\phi(x_i)$. Hence any eigenvector with non-zero eigenvalue is too --- it
+lives in the (at most $M$-dimensional) span of the data, even if the feature space
+is infinite-dimensional. That single observation is what collapses an
+infinite-dimensional eigenproblem to an $M\times M$ one, the \textbf{representer
+theorem} in miniature.
+\end{notebox}
+
+\begin{notebox}[The pre-image problem]
+Kernel PCA gives you a point \emph{in feature space} (a combination of
+$\phi(x_i)$'s). To \emph{see} it as an image you need its \textbf{pre-image} ---
+an input $x$ whose $\phi(x)$ is closest to that feature-space point. There is
+usually no exact pre-image (the feature point may not be $\phi$ of anything), so
+it is found by optimisation. This is exactly the step assignment \texttt{a4} asks
+for when denoising shape segmentations with kernel PCA.
+\end{notebox}
+
+% =====================================================================
+\section{A unifying view, and kernel ridge regression}
+% =====================================================================
+
+Kernels also connect to density estimation: the squared distance from a mapped
+point $\phi(z)$ to the mean of mapped data, for an RBF kernel, is (up to
+constants) a \textbf{Gaussian mixture / kernel density estimate} in the input
+space \deck{KernelMethods, slides 19--20}. So ``close to the mean in RKHS'' means
+``high data density in input space'' --- kernel methods and the GMMs of the
+segmentation chapter are two views of the same object.
+
+Finally, \textbf{kernel ridge regression} kernelises the Tikhonov-regularised
+least squares of Week 3 \deck{KernelMethods, slides 30--32}: a matrix identity
+turns the high-dimensional ridge solution into one expressed through the Gram
+matrix, and the prediction at a new point is $\sum_i\alpha_i\,k(x_i,x)$ --- again
+all kernel, no $\phi$. This is the \textbf{representer theorem} at work: the
+optimal function is a weighted sum of kernels centred on the data.
+
+\begin{keybox}[The kernel recipe, in one line]
+Take any linear algorithm written with inner products $\inner{x}{y}$, replace
+each by a kernel $k(x,y)$, and you get its nonlinear version --- PCA $\to$ kernel
+PCA, ridge $\to$ kernel ridge, k-means $\to$ kernel k-means, the SVM's nonlinear
+form --- all without ever building the feature space.
+\end{keybox}
+
+% =====================================================================
+\section{Kernel methods in medical image computing}
+% =====================================================================
+
+Kernel methods appear across the course's tasks \deck{KernelMethods, slide 29}:
+kernel \textbf{k-means / FCM / GMM} for segmentation of non-ellipsoidal intensity
+clusters; kernel \textbf{PCA} for nonlinear \emph{statistical shape models}
+(assignment \texttt{a4}) and dimensionality reduction; kernel \textbf{ridge
+regression} for image restoration (denoising, motion correction); and kernel
+classifiers for fMRI and brain-connectivity analysis.
+
+\begin{notebox}[Common pitfalls]
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{Kernel \& bandwidth choice.} The RBF width $a$ controls
+  everything; too wide is near-linear, too narrow overfits. Tune it (honestly
+  --- ``grad-student descent'' is the deck's joke for fiddling until it works).
+  \item \textbf{Feature scaling.} RBF uses $\norm{x-y}$, so standardise features
+  first or one dimension dominates.
+  \item \textbf{It scales as $N^2$.} The Gram matrix is $N\times N$; kernel methods
+  get expensive for large datasets (a reason deep nets took over at scale).
+  \item \textbf{Pre-image.} You cannot always map a feature-space result back to an
+  image exactly; it needs an optimisation.
+\end{itemize}
+\end{notebox}
+
+\begin{keybox}[Do the notebook]
+\texttt{notebooks/03\_kernel\_pca\_toy.ipynb} (NumPy + Matplotlib) builds two
+interlocking ``moons'', shows that \textbf{linear PCA} cannot separate them, then
+computes \textbf{kernel PCA} with an RBF kernel (centred Gram matrix
+eigen-decomposition) and shows the classes falling cleanly apart in the top two
+kernel components --- the kernel trick, made visible.
+\end{keybox}
+
+% =====================================================================
+\section*{Resources (watch one, read one)}
+\addcontentsline{toc}{section}{Resources}
+% =====================================================================
+
+\textbf{Kernels \& RKHS}
+\begin{itemize}[nosep,leftmargin=*]
+  \item C.\ Shalizi, \href{https://www.stat.cmu.edu/~cshalizi/350/lectures/16/lecture-16.pdf}{\emph{Mercer's theorem \& RKHS}} (concise notes).
+  \item Sch\"olkopf \& Smola, \emph{Learning with Kernels}, ch.~1--2 (the standard reference).
+\end{itemize}
+
+\textbf{SVMs}
+\begin{itemize}[nosep,leftmargin=*]
+  \item MIT 6.034, \href{https://www.youtube.com/watch?v=_PwhiWxHK8o}{\emph{Support Vector Machines}} (Patrick Winston lecture).
+  \item Boyd \& Vandenberghe, \href{https://web.stanford.edu/~boyd/cvxbook/}{\emph{Convex Optimization}}, ch.~5 (KKT conditions).
+\end{itemize}
+
+\textbf{Kernel PCA}
+\begin{itemize}[nosep,leftmargin=*]
+  \item scikit-learn, \href{https://scikit-learn.org/stable/auto_examples/decomposition/plot_kernel_pca.html}{kernel PCA example}.
+  \item Sch\"olkopf, Smola \& M\"uller (1998), \emph{Nonlinear Component Analysis as a Kernel Eigenvalue Problem} (the kernel-PCA paper).
+\end{itemize}
+
+\vfill
+\begin{center}\small\itshape
+Built for the MIC Summer-of-Code from Prof.\ Suyash P.\ Awate's CS-736
+KernelMethods deck, with attribution. For mentee use on this project; please do
+not redistribute the bundled decks outside it.
+\end{center}
+
+\end{document}

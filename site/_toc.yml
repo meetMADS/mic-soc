@@ -1,0 +1,11 @@
+# Table of contents — https://jupyterbook.org/customize/toc.html
+format: jb-book
+root: intro
+parts:
+  - caption: Course weeks
+    chapters:
+      - file: weeks/w1_foundations
+      - file: weeks/w2_denoising_reconstruction
+  - caption: Example notebook (rendered natively)
+    chapters:
+      - file: notebooks/demo_linear_algebra

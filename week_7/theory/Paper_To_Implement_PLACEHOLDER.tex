@@ -1,0 +1,99 @@
+% =====================================================================
+%  MIC Summer-of-Code  --  Weeks 6.5 to 8
+%  Paper Reading + Guided Implementation  ->  Final Project
+%
+%  PLACEHOLDER NOTICE.  Compile with pdflatex (once is enough) or upload
+%  to Overleaf.  The mentor replaces / supplements this with the actual
+%  paper to implement.
+%      pdflatex Paper_To_Implement_PLACEHOLDER.tex
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black]{hyperref}
+
+\titleformat{\section}{\large\bfseries\sffamily\color{blue!40!black}}{\thesection}{0.5em}{}
+
+\newtcolorbox{keybox}[1][]{colback=blue!4!white,colframe=blue!40!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.7pt,arc=2pt,left=5pt,right=5pt,top=4pt,bottom=4pt}
+\newtcolorbox{waitbox}[1][]{colback=orange!8!white,colframe=orange!60!black,
+  fonttitle=\bfseries\sffamily,title=#1,boxrule=0.9pt,arc=2pt,left=5pt,right=5pt,top=4pt,bottom=4pt}
+
+\title{\textbf{Paper to Implement}\\[2pt]
+\large Weeks 6.5--8: Paper Reading, Guided Implementation \& Final Project\\[6pt]
+\normalsize Medical Image Computing -- Summer of Code}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{waitbox}[$\boldsymbol{\Large\,\text{To be updated --- please wait}}$]
+\large
+The specific \textbf{paper you will implement} for this block (together with any
+data and starter code) will be \textbf{uploaded here by your mentor}.
+
+\smallskip
+Please \textbf{wait for that upload} before starting the implementation. This page
+is a placeholder; check back, or ask your mentor when the paper will be posted.
+\end{waitbox}
+
+\bigskip
+
+% =====================================================================
+\section{What to do while you wait}
+% =====================================================================
+
+You do not need to sit idle. Get everything ready so that, the moment the paper
+lands, you can start implementing:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Set up the environment.} Make sure the \texttt{mic\_soc}
+        environment runs (NumPy / SciPy / Matplotlib, and PyTorch + MONAI for the
+        deep-learning weeks). Confirm you can open a notebook and load a dataset.
+  \item \textbf{Refresh the paper-reading method.} Re-read the \emph{three-pass}
+        approach in \texttt{week\_7/Readme.md} (\S2) --- you will use it on the
+        paper your mentor provides.
+  \item \textbf{Skim the starter pool.} Browse the example papers and datasets in
+        \texttt{week\_7/Readme.md} (\S4--5) and the project rubric in
+        \texttt{week\_8/Readme.md}, so you know what ``good'' looks like.
+  \item \textbf{Be able to fetch data.} Check you can download a small dataset
+        (e.g.\ MedMNIST) and run one training step end-to-end on five examples.
+\end{itemize}
+
+% =====================================================================
+\section{What you will be asked to do (once the paper is posted)}
+% =====================================================================
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \textbf{Read the paper} deeply (three passes) and write a one-page summary
+        (use the template in \texttt{week\_7/Readme.md}).
+  \item \textbf{Reproduce one experiment} --- one figure or one number --- from the
+        paper, on a manageable dataset.
+  \item \textbf{Run a baseline} (a classical method or a simple network) on the
+        same data, to give the result context.
+  \item \textbf{Write it up}: what the paper claimed, what you reproduced, the gap,
+        and what it taught you --- then fold it into the \textbf{final project}
+        (\texttt{week\_8/Readme.md}: report + slides + reproducible code).
+\end{enumerate}
+
+\begin{keybox}[Where things live]
+Full week plans, the paper-reading template, the starter paper pool, datasets,
+and the final-project rubric are in \texttt{week\_7/Readme.md} and
+\texttt{week\_8/Readme.md}. This document only marks the \emph{paper to implement}
+as pending.
+\end{keybox}
+
+\vfill
+\begin{center}\small\itshape
+MIC Summer-of-Code. Placeholder notice --- to be replaced/supplemented by the
+mentor with the actual paper to implement.
+\end{center}
+
+\end{document}

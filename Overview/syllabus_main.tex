@@ -1,0 +1,264 @@
+% =========================================================
+%  Short Syllabus — Medical Image Computing (Summer of Code)
+%  Compile with: pdflatex syllabus_main.tex (twice)
+% =========================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks,colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{blue!50!black}}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily}{\thesubsection}{0.5em}{}
+
+\newcommand{\weekhead}[2]{%
+  \section*{Week #1 \,---\, #2}
+  \addcontentsline{toc}{section}{Week #1 --- #2}}
+
+\title{\sffamily\bfseries Medical Image Computing\\[2pt]
+       \large Summer of Code --- Short Syllabus}
+\author{Mentor's handbook (v1)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{What this document is}
+
+A one-page-per-week checklist of topics, slide-deck pointers, and
+curated links. Use it \emph{alongside} the longer
+\texttt{handbook\_main.pdf}: read the relevant handbook chapter first
+for the big picture, then tick items off here as you work through them.
+
+The full per-week plans (with exercises and notebooks) live in the repo, in
+folders named by \emph{calendar span}: \texttt{week\_0\_to\_1.5},
+\texttt{week\_1.5\_to\_3}, \texttt{week\_3}, \texttt{week\_4}, \texttt{week\_5},
+\texttt{week\_6}, \texttt{week\_7}, \texttt{week\_8}. Each also ships a focused
+theory PDF in its \texttt{theory/} subfolder. Below, each heading gives the
+calendar span and its folder.
+
+\tableofcontents
+\vspace{1em}
+
+% =========================================================
+\weekhead{1--1.5 (\texttt{week\_0\_to\_1.5})}{Image basics + probability \& math foundations}
+
+\textbf{Slide deck:} \texttt{Slides\_MIC\_Introduction.pdf}
+
+\textbf{Topics.} Pixel/voxel, intensity, colormap, signal vs.\ image,
+convolution and filtering, 2D Fourier basics; linear-algebra refresher
+(vectors, matrices, ranks, eigenvectors, SVD); norms $\ell^1, \ell^2,
+\ell^\infty$; probability (PDF/CDF, expectation, variance, Gaussian,
+Poisson, uniform); Bayes' theorem; MLE vs.\ MAP; gradient descent
+(intuitive).
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item 3Blue1Brown --- \href{https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab}{\emph{Essence of Linear Algebra}}
+  \item StatQuest --- \href{https://www.youtube.com/watch?v=pYxNSUDSFH4}{Probability vs Likelihood}; \href{https://www.youtube.com/watch?v=9wCnvr7Xw4E}{Bayes' Theorem}
+  \item 3Blue1Brown --- \href{https://www.youtube.com/watch?v=KuXjwB4LzSA}{Convolution}; \href{https://www.youtube.com/watch?v=spUNpyF58BY}{Fourier Transform}
+  \item Strang --- \href{https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/}{MIT OCW 18.06 lectures 1--5}
+  \item Tsitsiklis --- \href{https://ocw.mit.edu/courses/6-041-probabilistic-systems-analysis-and-applied-probability-fall-2010/}{MIT OCW 6.041 lectures 1, 2, 6, 7}
+  \item \href{https://nipy.org/nibabel/gettingstarted.html}{nibabel tutorial} (medical image I/O)
+\end{itemize}
+
+% =========================================================
+\weekhead{1.5--3 (\texttt{week\_1.5\_to\_3}), part 1}{Statistical priors (MRF/Gibbs) + image denoising}
+
+\textbf{Slide decks:} \texttt{Slides\_MIC\_ImageModeling.pdf},
+\texttt{Slides\_MIC\_ImageDenoising.pdf}
+
+\textbf{Topics.} Random fields, neighbourhood systems, cliques; Markov
+Random Fields; Gibbs distribution \& partition function; Hammersley--Clifford;
+Ising/Potts; continuous-valued GMRF; edge-preserving priors
+(Huber, Mumford--Shah); noise models in medical imaging
+(Gaussian, Poisson, Compound-Poisson, Rician, Rayleigh, K);
+SNR; Bayesian denoising = MAP estimation; non-local means; TV.
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Stanford CS228 --- \href{https://ermongroup.github.io/cs228-notes/representation/undirected/}{MRF notes}
+  \item Geman \& Geman (1984) --- \href{https://doi.org/10.1109/TPAMI.1984.4767596}{\emph{Stochastic Relaxation, Gibbs Distributions, \ldots}}
+  \item Bouman --- \href{https://engineering.purdue.edu/~bouman/publications/pdf/MBIP-book.pdf}{\emph{Model-Based Image Processing}} (free PDF, ch.\ 1--2, 7)
+  \item Gudbjartsson \& Patz --- \href{https://onlinelibrary.wiley.com/doi/10.1002/mrm.1910340618}{Rician distribution in MRI}
+  \item Buades et al.\ --- \href{https://ieeexplore.ieee.org/document/1467423}{Non-local means}
+  \item Steve Brunton --- \href{https://www.youtube.com/watch?v=DLfMsBKaDOY}{Sparsity \& $\ell^1$}
+\end{itemize}
+
+% =========================================================
+\weekhead{1.5--3 / Week 3 (\texttt{week\_1.5\_to\_3} + \texttt{week\_3})}{Inverse problems (reconstruction); CT and MRI physics}
+
+\textbf{Slide decks:} \texttt{Slides\_MIC\_ImageReconstruction.pdf},
+\texttt{Slides\_MIC\_XrayCT.pdf}, \texttt{Slides\_MIC\_MRI.pdf}
+
+\textbf{Topics.} Forward model $y=Gx+n$; ill-posedness; MAP
+reconstruction; Tikhonov ($\ell^2$) and TV ($\ell^1$) regularisation;
+matrix calculus (Jacobian, gradient of $\tfrac12\|Gx-y\|^2$); complex
+derivatives \& Cauchy--Riemann (MRI); gradient descent \& line search;
+Beer--Lambert; attenuation coefficient \& Hounsfield units; Radon
+transform; Fourier slice theorem; filtered back-projection; ART;
+Larmor precession; Bloch equations; T1/T2; $k$-space; compressed-sensing
+MRI.
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Kak \& Slaney --- \href{https://www.slaney.org/pct/}{\emph{Principles of Computerized Tomographic Imaging}} (free PDF)
+  \item Bouman --- MBIP ch.\ 7--8 (link above)
+  \item Computerphile --- \href{https://www.youtube.com/watch?v=BmkdAqd5ReY}{How CT scans work}
+  \item Allen Q.\ Ye --- \href{https://www.youtube.com/watch?v=djAxjtN_7VE}{\emph{MRI From Picture to Proton}}
+  \item iMaios --- \href{https://www.imaios.com/en/e-mri/spatial-encoding-in-mri/k-space}{$k$-space explainer}
+  \item Lustig, Donoho \& Pauly --- \href{https://onlinelibrary.wiley.com/doi/10.1002/mrm.21391}{Sparse MRI (CS-MRI)}
+  \item Petersen \& Pedersen --- \href{https://www.math.uwaterloo.ca/~hwolkowi/matrixcookbook.pdf}{Matrix Cookbook}
+\end{itemize}
+
+% =========================================================
+\weekhead{4 (\texttt{week\_4})}{Shape analysis + classical segmentation (+ registration, kernels)}
+
+\textbf{Slide decks:} \texttt{Slides\_MIC\_ImageSegmentation.pdf},
+\texttt{Slides\_MIC\_ShapeAnalysis.pdf},
+\texttt{Slides\_MIC\_Registration.pdf},
+\texttt{Slides\_MIC\_KernelMethods.pdf}
+
+\textbf{Topics.} K-means (objective, alternating optimisation,
+NP-hardness, k-means++, k-medoids, Voronoi); Euclidean vs.\ Manhattan
+distances; GMM + EM; fuzzy C-means; spectral clustering (graph
+Laplacian); graph cuts; level sets (Chan--Vese); U-Net teaser;
+shapes as equivalence classes under similarity transforms;
+Procrustes + Generalised Procrustes; tangent-space PCA; Active Shape
+Models; Active Appearance Models; registration models (rigid /
+affine / B-spline / diffeomorphic) and similarity measures
+(SSD / NCC / MI); SVM \& KKT; kernel trick; RKHS; Moore--Aronszajn;
+kernel PCA; Gram matrix.
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item StatQuest --- \href{https://www.youtube.com/watch?v=4b5d3muPQmA}{K-means}; \href{https://www.youtube.com/watch?v=REypj2sy_5U}{GMM/EM}
+  \item von Luxburg --- \href{https://arxiv.org/abs/0711.0189}{Spectral clustering tutorial}
+  \item Boykov \& Funka-Lea --- \href{https://link.springer.com/article/10.1007/s11263-006-7934-5}{Graph cuts in vision}
+  \item Cootes et al.\ --- \href{https://www.sciencedirect.com/science/article/pii/S1077314285710041}{Active Shape Models}
+  \item Pluim et al.\ --- \href{https://ieeexplore.ieee.org/document/1217670}{MI registration survey}
+  \item Boyd \& Vandenberghe --- \href{https://web.stanford.edu/~boyd/cvxbook/}{Convex Optimization} (KKT, ch.\ 5)
+  \item Sch{\"o}lkopf, Smola \& M{\"u}ller --- Kernel PCA paper
+\end{itemize}
+
+% =========================================================
+\weekhead{5--6.5 (\texttt{week\_5}), part 1}{Convolutional neural networks for medical images}
+
+\textbf{Slide deck:} \texttt{Slides\_MIC\_DeepGenerativeModeling.pdf}
+(slides $\approx$\,1--30)
+
+\textbf{Topics.} Convolution / cross-correlation, channels, stride,
+padding, dilation, receptive field; activations (ReLU, GELU, sigmoid,
+softmax, softplus); pooling \& strided convolutions; normalisations
+(Batch / Group / Instance); losses (cross-entropy, focal, Dice,
+generalised Dice, Tversky); backprop \& autodiff in one paragraph;
+SGD / Adam / AdamW \& schedules; architectures (LeNet, AlexNet, VGG,
+ResNet, U-Net, nnU-Net, ViT, MedSAM); evaluation metrics (Dice, IoU,
+Hausdorff 95, ASSD, AUROC).
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item 3Blue1Brown --- \href{https://www.youtube.com/watch?v=aircAruvnKk}{What is a neural network?} \& \href{https://www.youtube.com/watch?v=tIeHLnjs5U8}{backprop}
+  \item Stanford CS231n --- \href{https://cs231n.github.io/}{class notes}
+  \item PyTorch --- \href{https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html}{60-min blitz}
+  \item Ronneberger et al.\ --- \href{https://arxiv.org/abs/1505.04597}{U-Net}
+  \item Isensee et al.\ --- \href{https://www.nature.com/articles/s41592-020-01008-z}{nnU-Net}
+  \item MONAI --- \href{https://github.com/Project-MONAI/tutorials}{tutorials}
+  \item Maier-Hein et al.\ --- \href{https://www.nature.com/articles/s41592-023-02151-z}{\emph{Metrics Reloaded}}
+\end{itemize}
+
+% =========================================================
+\weekhead{5--6.5 (\texttt{week\_6}), part 2}{VAEs and GANs (deep generative modelling)}
+
+\textbf{Slide deck:} \texttt{Slides\_MIC\_DeepGenerativeModeling.pdf}
+(slides $\approx$\,30--80)
+
+\textbf{Topics.} Latent-variable models; ELBO; reconstruction \& KL
+terms; reparameterisation trick; closed-form KL between Gaussians;
+$\beta$-VAE; VAE for anomaly detection; GAN min-max objective;
+Jensen--Shannon view; mode collapse, vanishing gradients;
+stabilisations (WGAN-GP, spectral norm, TTUR); conditional GANs
+(pix2pix, CycleGAN); medical applications (cross-modality synthesis,
+super-resolution); diffusion models (DDPM) at a high level;
+generative priors for Bayesian reconstruction (plug-and-play /
+score-based).
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Kingma \& Welling --- \href{https://arxiv.org/abs/1312.6114}{VAE}
+  \item Lilian Weng --- \href{https://lilianweng.github.io/posts/2018-08-12-vae/}{From AE to $\beta$-VAE}
+  \item Goodfellow et al.\ --- \href{https://arxiv.org/abs/1406.2661}{GAN}
+  \item Lilian Weng --- \href{https://lilianweng.github.io/posts/2017-08-20-gan/}{From GAN to WGAN}
+  \item Gulrajani et al.\ --- \href{https://arxiv.org/abs/1704.00028}{WGAN-GP}
+  \item Ho, Jain \& Abbeel --- \href{https://arxiv.org/abs/2006.11239}{DDPM}
+  \item Chung \& Ye --- \href{https://www.sciencedirect.com/science/article/pii/S1361841522001268}{Score-based diffusion for MRI}
+\end{itemize}
+
+% =========================================================
+\weekhead{6.5--8 (\texttt{week\_7}), part 1}{Paper reading + guided implementation}
+
+\textbf{Slide deck:} \texttt{Slides\_ProjectTopicExamples.pdf}
+
+\textbf{Topics.} How to read a paper (3-pass method); choosing a
+paper (venue / code / data / scope); one-page summary template;
+reproducing one experiment; baselines.
+
+\textbf{Starter paper pool (pick one).}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Aggarwal, Mani \& Jacob --- \href{https://ieeexplore.ieee.org/document/8434321}{MoDL (model-based DL for inverse problems)}
+  \item Isensee et al.\ --- \href{https://www.nature.com/articles/s41592-020-01008-z}{nnU-Net}
+  \item Balakrishnan et al.\ --- \href{https://arxiv.org/abs/1809.05231}{VoxelMorph (registration)}
+  \item Bhalodia et al.\ --- \href{https://arxiv.org/abs/1810.00111}{DeepSSM (shape)}
+  \item Chung \& Ye --- \href{https://www.sciencedirect.com/science/article/pii/S1361841522001268}{Score-based MRI}
+  \item Ma et al.\ --- \href{https://www.nature.com/articles/s41467-024-44824-z}{MedSAM}
+\end{itemize}
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Andrew Ng --- \href{https://www.youtube.com/watch?v=733m6qBH-jI}{How to Read a Paper}
+  \item Keshav --- \href{https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf}{3-pass paper-reading method}
+  \item \href{https://paperswithcode.com/area/medical}{Papers with Code --- Medical}
+  \item \href{https://grand-challenge.org/challenges/}{Grand-Challenge} datasets
+  \item \href{https://medmnist.com}{MedMNIST v2}
+\end{itemize}
+
+% =========================================================
+\weekhead{6.5--8 (\texttt{week\_8}), part 2}{Final project}
+
+\textbf{Deliverables.} 6--10-page report; 10--15 slides; clean
+reproducible code with \texttt{requirements.txt} and run instructions;
+results/ folder with figures and tables; short live demo.
+
+\textbf{Suggested project shapes.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item Bayesian denoising with a learned prior (CNN denoiser vs.\ MRF MAP).
+  \item Under-sampled MRI reconstruction (model-based / unrolled).
+  \item Brain-tumour segmentation (BraTS; U-Net vs.\ nnU-Net).
+  \item Shape-prior segmentation (ASM + CNN initialisation).
+  \item Cross-modality synthesis (CycleGAN MR$\leftrightarrow$CT).
+  \item VAE anomaly detection on chest X-rays.
+\end{itemize}
+
+\textbf{Common pitfalls.} No baseline; no held-out test set; tiny test
+set without confidence intervals; no qualitative failure analysis;
+unreproducible code.
+
+\textbf{Resources.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item \texttt{slides/Slides\_ProjectTopicExamples.pdf}
+  \item \href{https://docs.monai.io/}{MONAI docs} and \href{https://github.com/Project-MONAI/tutorials}{tutorials}
+  \item \href{https://cs230.stanford.edu/blog/finalproject/}{Stanford CS230 final-project tips}
+  \item \href{https://distill.pub/2017/research-debt/}{Distill --- Research Debt}
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,34 @@
+# Jupyter Book configuration — Medical Image Computing, Summer of Code
+title: "Medical Image Computing — Summer of Code"
+author: "MIC Summer-of-Code"
+# logo: logo.png   # optional: drop a logo image in site/ and point here
+
+# Build only the files listed in _toc.yml (ignore the rest of the repo).
+only_build_toc_files: true
+
+# Do NOT execute notebooks during the build: our notebooks ship without outputs,
+# and this keeps the cloud build light (no numpy/torch needed to publish).
+# Flip to "auto" and add the libraries to requirements.txt if you want the
+# figures rendered into the pages.
+execute:
+  execute_notebooks: "off"
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+  home_page_in_navbar: true
+  extra_footer: |
+    <p>MIC Summer-of-Code. Slides &copy; Prof. Suyash P. Awate (CS-736, IIT Bombay), bundled with attribution.</p>
+
+# After you create the GitHub repo, set this URL (used by the repo/issue buttons).
+repository:
+  url: https://github.com/USERNAME/REPO
+  branch: main
+  path_to_book: site
+
+launch_buttons:
+  colab_url: "https://colab.research.google.com"
+
+sphinx:
+  config:
+    html_show_copyright: false
