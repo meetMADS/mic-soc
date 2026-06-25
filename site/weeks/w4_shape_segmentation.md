@@ -48,11 +48,24 @@ Gaussian Mixture Models & EM — StatQuest:
   (even infinite-dim) feature space without ever computing `φ`. **Kernel PCA** runs
   PCA via the Gram matrix; the **RBF** kernel separates data linear PCA can't.
 
-<p>📄 <b>Deep-dive PDFs (auto-compiled):</b>
-<a href="../pdfs/MIC_Shape_Analysis.pdf">MIC_Shape_Analysis.pdf</a> ·
-<a href="../pdfs/MIC_Image_Segmentation.pdf">MIC_Image_Segmentation.pdf</a> ·
-<a href="../pdfs/MIC_Kernel_Methods.pdf">MIC_Kernel_Methods.pdf</a>.
-Registration is a lighter, supplementary topic (slide deck only).</p>
+<p>📄 <b>The three full chapters (auto-compiled) — read inline:</b></p>
+
+<details style="margin:0.4rem 0;">
+<summary>📖 Shape analysis (or <a href="../pdfs/MIC_Shape_Analysis.pdf" target="_blank">open ↗</a>)</summary>
+<iframe src="../pdfs/MIC_Shape_Analysis.pdf" width="100%" height="760" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
+
+<details style="margin:0.4rem 0;">
+<summary>📖 Image segmentation (or <a href="../pdfs/MIC_Image_Segmentation.pdf" target="_blank">open ↗</a>)</summary>
+<iframe src="../pdfs/MIC_Image_Segmentation.pdf" width="100%" height="760" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
+
+<details style="margin:0.4rem 0;">
+<summary>📖 Kernel methods (or <a href="../pdfs/MIC_Kernel_Methods.pdf" target="_blank">open ↗</a>)</summary>
+<iframe src="../pdfs/MIC_Kernel_Methods.pdf" width="100%" height="760" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
+
+<p style="margin-top:6px;"><i>Registration is a lighter, supplementary topic (slide deck only).</i></p>
 
 > **Primary slides:** `Slides_MIC_ImageSegmentation` (123, classical part first),
 > `Slides_MIC_ShapeAnalysis` (57, in full), plus supplementary

@@ -16,14 +16,58 @@ mentor can see your progress. Work top to bottom.
 
 ## Learning roadmap
 
-| Calendar | Topic | This site |
-|---|---|---|
-| **Week 1 – 1.5** | Basics of images; probability & math foundations | [Foundations](weeks/w1_foundations.md) |
-| **Week 1.5 – 3** | Image denoising; reconstruction (inverse problems, Bayesian) | [Denoising & Reconstruction](weeks/w2_denoising_reconstruction.md) |
-| **Week 3** | CT & MRI fundamentals (physics + modeling intuition) | [CT & MRI](weeks/w3_ct_mri.md) |
-| **Week 4** | Shape analysis; segmentation (clustering, classical) | [Shape & Segmentation](weeks/w4_shape_segmentation.md) |
-| **Week 5 – 6.5** | Neural networks for images; VAEs & GANs | [CNNs](weeks/w5_cnns.md) · [VAEs & GANs](weeks/w6_generative.md) |
-| **Week 6.5 – 8** | Paper reading + guided implementation; final project | [Paper reading](weeks/w7_paper.md) · [Final project](weeks/w8_final_project.md) |
+::::{grid} 1 2 2 2
+:gutter: 3
+
+:::{grid-item-card} 📐 Week 1 – 1.5 · Foundations
+:link: weeks/w1_foundations
+:link-type: doc
+Basics of images (pixels, intensity); probability & the math toolbox.
+:::
+
+:::{grid-item-card} 🧮 Week 1.5 – 3 · Denoising & Reconstruction
+:link: weeks/w2_denoising_reconstruction
+:link-type: doc
+The Bayesian view: noise models, priors, ill-posed inverse problems.
+:::
+
+:::{grid-item-card} 🩻 Week 3 · CT & MRI
+:link: weeks/w3_ct_mri
+:link-type: doc
+Where the forward operator comes from: sinograms, FBP, k-space.
+:::
+
+:::{grid-item-card} 🫀 Week 4 · Shape & Segmentation
+:link: weeks/w4_shape_segmentation
+:link-type: doc
+Procrustes/GPA & shape PCA; k-means, GMM/EM; kernels. *(Project 1)*
+:::
+
+:::{grid-item-card} 🧠 Week 5 · CNNs
+:link: weeks/w5_cnns
+:link-type: doc
+Convolutional nets for medical images; U-Net and friends.
+:::
+
+:::{grid-item-card} 🎨 Week 6 · VAEs & GANs
+:link: weeks/w6_generative
+:link-type: doc
+Deep generative models as learned priors. *(Project 2)*
+:::
+
+:::{grid-item-card} 📄 Week 7 · Paper Reading
+:link: weeks/w7_paper
+:link-type: doc
+Read one paper deeply; reproduce one result.
+:::
+
+:::{grid-item-card} 🏁 Week 8 · Final Project
+:link: weeks/w8_final_project
+:link-type: doc
+Data + method + evaluation + write-up + talk.
+:::
+
+::::
 
 <p><b>Reference PDFs (auto-compiled on every push):</b>
 <a href="pdfs/handbook_main.pdf">📘 Long Technical Handbook</a> ·

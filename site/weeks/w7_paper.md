@@ -19,11 +19,15 @@ figure or number from the paper; run a baseline (classical or simple CNN) on the
 actually work?"*
 ```
 
-## ▶ Watch (intuition first)
+## ▶ Start here
 
-How to read a research paper — Andrew Ng:
-
-<iframe width="100%" height="400" src="https://www.youtube.com/embed/733m6qBH-jI" title="Andrew Ng: How to read a paper" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+```{admonition} How to read a paper — two short guides
+:class: tip
+There isn't one canonical must-watch video for this, so use two excellent written
+guides instead (both linked again under **Read** below): Andrew Ng's **three-pass
+method** and S. Keshav's classic one-page *How to Read a Paper*. Skim them before
+you open your paper.
+```
 
 ## 📖 Read (the method)
 

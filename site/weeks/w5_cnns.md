@@ -46,10 +46,10 @@ U-Net explained:
   **distribution shift**; and never report accuracy for segmentation — use
   **Dice, IoU, Hausdorff-95, ASSD**.
 
-<p>📄 <b>Deep-dive PDF (auto-compiled):</b>
-<a href="../pdfs/MIC_Neural_Networks_for_Images.pdf">MIC_Neural_Networks_for_Images.pdf</a>
-— neuron → convolution → training → the architecture zoo (LeNet → ResNet → U-Net →
-nnU-Net → ViT/SAM) → the medical-imaging twists.</p>
+<details style="margin:0.6rem 0;">
+<summary>📖 <b>Read the full chapter here</b> — auto-compiled PDF (or <a href="../pdfs/MIC_Neural_Networks_for_Images.pdf" target="_blank">open in a new tab ↗</a>)</summary>
+<iframe src="../pdfs/MIC_Neural_Networks_for_Images.pdf" width="100%" height="780" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
 
 > **Primary slides:** `Slides_MIC_DeepGenerativeModeling`, **first half (≈1–30)** is
 > the CNN chapter — from the

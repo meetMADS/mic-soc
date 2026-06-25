@@ -51,10 +51,10 @@ Generative adversarial networks — Ian Goodfellow (NIPS tutorial):
   `R(x)` in `min_x ½‖Gx − y‖² + λR(x)` — the **plug-and-play / score-based**
   reconstruction family, today's hottest area in medical reconstruction.
 
-<p>📄 <b>Deep-dive PDF (auto-compiled):</b>
-<a href="../pdfs/MIC_VAEs_and_GANs.pdf">MIC_VAEs_and_GANs.pdf</a>
-— ELBO derivation, reparameterisation, KL closed form, the GAN game and its fixes,
-a diffusion preview, and the "generative model = learned prior" thread.</p>
+<details style="margin:0.6rem 0;">
+<summary>📖 <b>Read the full chapter here</b> — auto-compiled PDF (or <a href="../pdfs/MIC_VAEs_and_GANs.pdf" target="_blank">open in a new tab ↗</a>)</summary>
+<iframe src="../pdfs/MIC_VAEs_and_GANs.pdf" width="100%" height="780" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
 
 > **Primary slides:** `Slides_MIC_DeepGenerativeModeling`, **second half (≈30→)** —
 > autoencoders → VAEs → GANs — from the

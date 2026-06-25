@@ -35,9 +35,10 @@ Linear algebra — 3Blue1Brown, *Essence of Linear Algebra* (playlist):
   positive-definite matrices, the **L1 vs L2 norm** (and why L1 → sparsity), and
   **2D convolution / the Fourier transform**.
 
-<p>📄 <b>Deep-dive PDF (auto-compiled):</b> the
-<a href="../pdfs/handbook_main.pdf">Long Technical Handbook</a>, Week 1 chapter
-(this week has no separate theory file — the handbook is your reading).</p>
+<details style="margin:0.6rem 0;">
+<summary>📖 <b>Read the full Week 1 chapter here</b> — the auto-compiled handbook (or <a href="../pdfs/handbook_main.pdf" target="_blank">open the PDF in a new tab ↗</a>)</summary>
+<iframe src="../pdfs/handbook_main.pdf" width="100%" height="780" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
 
 ## 🧪 Do (hands-on)
 

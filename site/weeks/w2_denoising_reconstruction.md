@@ -13,13 +13,13 @@ needs a prior.
 
 ## ▶ Watch (intuition first)
 
-Inverse problems — Steve Brunton:
+Denoising data with the FFT — Steve Brunton:
 
-<iframe width="100%" height="400" src="https://www.youtube.com/embed/Jl3Ftf6S5MQ" title="Steve Brunton: Inverse Problems" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/s2K1JfNR7Sc" title="Steve Brunton: Denoising Data with the FFT" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-Sparsity & the L1 norm — Steve Brunton:
+Why images are compressible (sparsity & the L1 idea) — Steve Brunton:
 
-<iframe width="100%" height="400" src="https://www.youtube.com/embed/DLfMsBKaDOY" title="Steve Brunton: Sparsity and the L1 norm" frameborder="0" allowfullscreen></iframe>
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/Dt2WYkqZfbs" title="Steve Brunton: Why images are compressible" frameborder="0" allowfullscreen></iframe>
 
 ## 📖 Read (the core ideas)
 
@@ -36,9 +36,10 @@ Sparsity & the L1 norm — Steve Brunton:
   explodes — the prior is what makes the problem solvable. The key gradient:
   `∇‖Gx − y‖² = 2Gᵀ(Gx − y)`.
 
-<p>📄 <b>Deep-dive PDF (auto-compiled):</b>
-<a href="../pdfs/MIC_Denoising_and_Reconstruction.pdf">MIC_Denoising_and_Reconstruction.pdf</a>
-— the full chapter, with worked examples.</p>
+<details style="margin:0.6rem 0;">
+<summary>📖 <b>Read the full chapter here</b> — auto-compiled PDF (or <a href="../pdfs/MIC_Denoising_and_Reconstruction.pdf" target="_blank">open in a new tab ↗</a>)</summary>
+<iframe src="../pdfs/MIC_Denoising_and_Reconstruction.pdf" width="100%" height="780" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
 
 ## 🧪 Do (hands-on)
 

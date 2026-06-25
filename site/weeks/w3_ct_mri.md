@@ -42,10 +42,12 @@ MRI from picture to proton — Allen Q. Ye:
   reconstruction makes the noise **Rician**; under-sampling k-space → aliasing →
   the compressed-sensing story.
 
-<p>📄 <b>Deep-dive PDF (auto-compiled):</b>
-<a href="../pdfs/MIC_CT_and_MRI_Fundamentals.pdf">MIC_CT_and_MRI_Fundamentals.pdf</a>
-— the full self-contained chapter with worked examples. (The long
-<a href="../pdfs/handbook_main.pdf">handbook_main.pdf</a> has the same in context.)</p>
+<details style="margin:0.6rem 0;">
+<summary>📖 <b>Read the full chapter here</b> — auto-compiled PDF (or <a href="../pdfs/MIC_CT_and_MRI_Fundamentals.pdf" target="_blank">open in a new tab ↗</a>)</summary>
+<iframe src="../pdfs/MIC_CT_and_MRI_Fundamentals.pdf" width="100%" height="780" style="border:1px solid #ddd;border-radius:6px;margin-top:8px;"></iframe>
+</details>
+
+<p style="margin-top:6px;">The long <a href="../pdfs/handbook_main.pdf" target="_blank">handbook_main.pdf</a> covers the same in course context.</p>
 
 > **Primary slides:** `Slides_MIC_XrayCT` (92) and `Slides_MIC_MRI` (55) — from the
 > [course slide Drive folder](https://drive.google.com/drive/folders/1_yKltLUl4Zzi2coX6aGSsHBDPAwPPgZd?usp=sharing).
