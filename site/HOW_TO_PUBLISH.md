@@ -13,7 +13,7 @@ Pick whichever fits you (this machine has no `git`, so use a dev machine or the 
   cd MIC-SoC
   git init && git add . && git commit -m "course site"
   git branch -M main
-  git remote add origin https://github.com/USERNAME/REPO.git
+  git remote add origin https://github.com/meetMADS/mic-soc.git
   git push -u origin main
   ```
 - **No git:** install **GitHub Desktop** (point-and-click) on a dev machine, or
@@ -31,11 +31,12 @@ Every push to `main` runs the `deploy-course-site` Action (see the **Actions**
 tab). When it's green, your site is at:
 
 ```
-https://USERNAME.github.io/REPO/
+https://meetmads.github.io/mic-soc/
 ```
 
-Then edit `site/_config.yml` → `repository.url` to your repo (for the repo/issue
-buttons). Done — future edits just need a push; the site rebuilds itself.
+(`site/_config.yml` → `repository.url` is already set to this repo, so the
+repo/issue buttons work.) Done — future edits just need a push; the site
+rebuilds itself.
 
 > If the Action fails, open the failed run in the **Actions** tab and copy the log;
 > the build step (`jupyter-book build site/`) usually points right at the file.

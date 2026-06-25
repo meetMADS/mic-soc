@@ -18,11 +18,11 @@ html:
   use_repository_button: true
   home_page_in_navbar: true
   extra_footer: |
-    <p>MIC Summer-of-Code. Slides &copy; Prof. Suyash P. Awate (CS-736, IIT Bombay), bundled with attribution.</p>
+    <p>MIC Summer-of-Code. Slides &copy; Prof. Suyash P. Awate (CS-736, IIT Bombay), used with attribution; the slide files themselves are not redistributed here.</p>
 
-# After you create the GitHub repo, set this URL (used by the repo/issue buttons).
+# Used by the repo/issue buttons in the page header.
 repository:
-  url: https://github.com/USERNAME/REPO
+  url: https://github.com/meetMADS/mic-soc
   branch: main
   path_to_book: site
 
