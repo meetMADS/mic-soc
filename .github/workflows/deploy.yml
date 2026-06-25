@@ -26,8 +26,23 @@ jobs:
           python-version: "3.11"
       - name: Install Jupyter Book
         run: pip install -r site/requirements.txt
+      # Compile every self-contained handbook .tex to PDF (full TeX Live in a
+      # container). continue-on-error so one bad .tex never blocks the site.
+      - name: Compile theory handbooks (LaTeX -> PDF)
+        uses: xu-cheng/latex-action@v3
+        continue-on-error: true
+        with:
+          root_file: "**/*.tex"
+          glob_root_file: true
+          work_in_root_file_dir: true
       - name: Build the book
         run: jupyter-book build site/
+      # Publish the compiled PDFs under the live site at /pdfs/<name>.pdf
+      - name: Collect compiled PDFs into the site
+        run: |
+          mkdir -p site/_build/html/pdfs
+          find . -name "*.pdf" -not -path "./site/*" -exec cp -v {} site/_build/html/pdfs/ \;
+          echo "PDFs published:"; ls -1 site/_build/html/pdfs/ || true
       - name: Upload the built site
         uses: actions/upload-pages-artifact@v3
         with:

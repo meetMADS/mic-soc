@@ -36,18 +36,25 @@ Sparsity & the L1 norm — Steve Brunton:
   explodes — the prior is what makes the problem solvable. The key gradient:
   `∇‖Gx − y‖² = 2Gᵀ(Gx − y)`.
 
-📄 **Deep-dive PDF:** `week_1.5_to_3/theory/MIC_Denoising_and_Reconstruction.tex`
-→ compile to PDF (the full chapter, with worked examples).
+<p>📄 <b>Deep-dive PDF (auto-compiled):</b>
+<a href="../pdfs/MIC_Denoising_and_Reconstruction.pdf">MIC_Denoising_and_Reconstruction.pdf</a>
+— the full chapter, with worked examples.</p>
 
 ## 🧪 Do (hands-on)
 
-Notebooks in `week_1.5_to_3/notebooks/` (NumPy + Matplotlib):
+Notebooks (NumPy + Matplotlib):
 
 1. **Noise models** — Gaussian/Poisson/Rician/speckle; SNR; the Anscombe transform.
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/01_noise_models.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/01_noise_models.ipynb)
 2. **MAP denoising with an MRF prior** — ICM + gradient descent; quadratic vs
    **Huber** (watch the quadratic blur an edge while Huber keeps it).
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/02_map_denoising_mrf.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/02_map_denoising_mrf.ipynb)
 3. **Inverse problems** — deblurring: the naive inverse explodes, then Tikhonov
    and total variation rescue it.
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/03_inverse_problems_reconstruction.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_1.5_to_3/notebooks/03_inverse_problems_reconstruction.ipynb)
 
 ## ✅ Checkpoint — submit to your mentor
 

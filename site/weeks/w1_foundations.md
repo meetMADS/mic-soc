@@ -35,19 +35,25 @@ Linear algebra — 3Blue1Brown, *Essence of Linear Algebra* (playlist):
   positive-definite matrices, the **L1 vs L2 norm** (and why L1 → sparsity), and
   **2D convolution / the Fourier transform**.
 
-📄 **Deep-dive:** the full written treatment is the *Long Technical Handbook*
-(`Overview/handbook_main.tex` → compile to PDF), Week 1 chapter.
+<p>📄 <b>Deep-dive PDF (auto-compiled):</b> the
+<a href="../pdfs/handbook_main.pdf">Long Technical Handbook</a>, Week 1 chapter
+(this week has no separate theory file — the handbook is your reading).</p>
 
 ## 🧪 Do (hands-on)
 
-Three notebooks (in `week_0_to_1.5/notebooks/`, NumPy + Matplotlib):
+Three notebooks (NumPy + Matplotlib):
 
 1. **Image basics & I/O** — load images, intensity, histograms, colormap ≠ data.
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/01_image_basics_and_io.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/01_image_basics_and_io.ipynb)
 2. **Probability refresher** — simulate Gaussian/Poisson noise; MLE vs MAP.
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/02_probability_refresher.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/02_probability_refresher.ipynb)
 3. **Linear algebra & convolution** — norms, eigen/SVD, 2D convolution, the 2D DFT.
+   [Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/03_linear_algebra_and_convolution.ipynb)
+   · [GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_0_to_1.5/notebooks/03_linear_algebra_and_convolution.ipynb)
 
-A rendered example notebook lives under **Example notebook** in the sidebar; open
-any notebook in **Colab** with the rocket button at the top of a notebook page.
+A rendered example notebook also lives under **Example notebook** in the sidebar.
 
 ## ✅ Checkpoint — submit to your mentor
 

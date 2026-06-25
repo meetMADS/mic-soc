@@ -20,15 +20,20 @@ mentor can see your progress. Work top to bottom.
 |---|---|---|
 | **Week 1 – 1.5** | Basics of images; probability & math foundations | [Foundations](weeks/w1_foundations.md) |
 | **Week 1.5 – 3** | Image denoising; reconstruction (inverse problems, Bayesian) | [Denoising & Reconstruction](weeks/w2_denoising_reconstruction.md) |
-| **Week 3** | CT & MRI fundamentals (physics + modeling intuition) | *coming soon* |
-| **Week 4** | Shape analysis; segmentation (clustering, classical) | *coming soon* |
-| **Week 5 – 6.5** | Neural networks for images; VAEs & GANs | *coming soon* |
-| **Week 6.5 – 8** | Paper reading + guided implementation; final project | *coming soon* |
+| **Week 3** | CT & MRI fundamentals (physics + modeling intuition) | [CT & MRI](weeks/w3_ct_mri.md) |
+| **Week 4** | Shape analysis; segmentation (clustering, classical) | [Shape & Segmentation](weeks/w4_shape_segmentation.md) |
+| **Week 5 – 6.5** | Neural networks for images; VAEs & GANs | [CNNs](weeks/w5_cnns.md) · [VAEs & GANs](weeks/w6_generative.md) |
+| **Week 6.5 – 8** | Paper reading + guided implementation; final project | [Paper reading](weeks/w7_paper.md) · [Final project](weeks/w8_final_project.md) |
+
+<p><b>Reference PDFs (auto-compiled on every push):</b>
+<a href="pdfs/handbook_main.pdf">📘 Long Technical Handbook</a> ·
+<a href="pdfs/syllabus_main.pdf">📗 Short Syllabus</a> — the big-picture reference
+and the week-by-week checklist.</p>
 
 ```{note}
-This is a **prototype**: the first two weeks are fully wired (reading, video,
-notebook, checkpoint). The remaining weeks already have full content in the repo
-and will be added to the site next.
+All eight weeks are now wired — video, reading, deep-dive PDF, notebook, and a
+checkpoint slot. The only thing left is to paste a Google Form embed into each
+checkpoint (see `HOW_TO_PUBLISH.md`).
 ```
 
 ## For mentees vs mentors

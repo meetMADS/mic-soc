@@ -6,6 +6,12 @@ parts:
     chapters:
       - file: weeks/w1_foundations
       - file: weeks/w2_denoising_reconstruction
+      - file: weeks/w3_ct_mri
+      - file: weeks/w4_shape_segmentation
+      - file: weeks/w5_cnns
+      - file: weeks/w6_generative
+      - file: weeks/w7_paper
+      - file: weeks/w8_final_project
   - caption: Example notebook (rendered natively)
     chapters:
       - file: notebooks/demo_linear_algebra
