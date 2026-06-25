@@ -26,15 +26,23 @@ jobs:
           python-version: "3.11"
       - name: Install Jupyter Book
         run: pip install -r site/requirements.txt
-      # Compile every self-contained handbook .tex to PDF (full TeX Live in a
-      # container). continue-on-error so one bad .tex never blocks the site.
+      # Compile every self-contained handbook .tex to PDF with full TeX Live in
+      # Docker. The loop attempts each file independently (|| true) so one bad
+      # file can never abort the others or block the site.
       - name: Compile theory handbooks (LaTeX -> PDF)
-        uses: xu-cheng/latex-action@v3
         continue-on-error: true
-        with:
-          root_file: "**/*.tex"
-          glob_root_file: true
-          work_in_root_file_dir: true
+        run: |
+          docker run --rm -v "$PWD":/work -w /work --entrypoint bash \
+            ghcr.io/xu-cheng/texlive-full:latest -c '
+              set +e
+              for f in $(find . -name "*.tex" -not -path "./site/*"); do
+                d=$(dirname "$f"); b=$(basename "$f" .tex)
+                echo "::group::compile $f"
+                ( cd "$d" && latexmk -pdf -interaction=nonstopmode "$b.tex" ) || echo "WARN: $b failed to compile"
+                echo "::endgroup::"
+              done
+              echo "Compiled PDFs:"; find . -name "*.pdf" -not -path "./site/*"
+            '
       - name: Build the book
         run: jupyter-book build site/
       # Publish the compiled PDFs under the live site at /pdfs/<name>.pdf
