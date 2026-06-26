@@ -11,19 +11,44 @@ parts:
         sections:
           - file: weeks/w1/watch
           - file: weeks/w1/read
-          - file: weeks/w1/do
+          - file: notebooks/w1/01_image_basics_and_io
+          - file: notebooks/w1/02_probability_refresher
+          - file: notebooks/w1/03_linear_algebra_and_convolution
           - file: weeks/w1/checkpoint
       - file: weeks/w2_denoising_reconstruction
+        sections:
+          - file: weeks/w2/watch
+          - file: weeks/w2/read
+          - file: notebooks/w2/01_noise_models
+          - file: notebooks/w2/02_map_denoising_mrf
+          - file: notebooks/w2/03_inverse_problems_reconstruction
+          - file: weeks/w2/checkpoint
       - file: weeks/w3_ct_mri
         sections:
-          - file: weeks/w3/ct_video
-          - file: weeks/w3/mri_video
+          - file: weeks/w3/watch
           - file: weeks/w3/read
-          - file: weeks/w3/lab
+          - file: notebooks/w3/01_ct_radon_fbp_and_mri_kspace
           - file: weeks/w3/checkpoint
       - file: weeks/w4_shape_segmentation
+        sections:
+          - file: weeks/w4/watch
+          - file: weeks/w4/read
+          - file: notebooks/w4/01_shape_analysis_procrustes_pca
+          - file: notebooks/w4/02_kmeans_gmm_em_segmentation
+          - file: notebooks/w4/03_kernel_pca_toy
+          - file: weeks/w4/checkpoint
       - file: weeks/w5_cnns
+        sections:
+          - file: weeks/w5/watch
+          - file: weeks/w5/read
+          - file: notebooks/w5/01_cnn_building_blocks_from_scratch
+          - file: weeks/w5/checkpoint
       - file: weeks/w6_generative
+        sections:
+          - file: weeks/w6/watch
+          - file: weeks/w6/read
+          - file: notebooks/w6/01_generative_models_concepts
+          - file: weeks/w6/checkpoint
       - file: weeks/w7_paper
       - file: weeks/w8_final_project
   - caption: Assignments, projects & labs
@@ -32,6 +57,3 @@ parts:
       - file: projects/p1_denoising
       - file: projects/p2_segmentation
       - file: labs
-  - caption: Example notebook (rendered natively)
-    chapters:
-      - file: notebooks/demo_linear_algebra

@@ -20,7 +20,10 @@ vocabulary every later week assumes.
 
 1. **[▶ Watch](w1/watch.md)** — build intuition first (Bayes + linear algebra).
 2. **[📖 Read](w1/read.md)** — the core ideas + the full Week 1 handbook chapter.
-3. **[🧪 Do](w1/do.md)** — three hands-on notebooks.
+3. **🧪 Do** — three notebooks, rendered right here on the site:
+   - [Image basics & I/O](../notebooks/w1/01_image_basics_and_io.ipynb)
+   - [Probability refresher](../notebooks/w1/02_probability_refresher.ipynb)
+   - [Linear algebra & convolution](../notebooks/w1/03_linear_algebra_and_convolution.ipynb)
 4. **[✅ Checkpoint](w1/checkpoint.md)** — submit to your mentor.
 
 <div class="mic-mark" data-id="w1_foundations" data-label="Week 1 overview"></div>
