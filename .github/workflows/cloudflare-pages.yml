@@ -1,0 +1,63 @@
+name: deploy-cloudflare
+
+# Builds the book (with PDFs) and deploys it to Cloudflare Pages, which can sit
+# behind Cloudflare Access (email login). This whole job SKIPS cleanly until the
+# two repo secrets exist, so it never shows a red failure before you set it up:
+#   CLOUDFLARE_API_TOKEN   (Cloudflare -> My Profile -> API Tokens -> Edit Pages)
+#   CLOUDFLARE_ACCOUNT_ID  (Cloudflare dashboard -> Account ID)
+# See site/CLOUDFLARE_SETUP.md for the full walkthrough.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Note when Cloudflare is not configured yet
+        if: ${{ env.CF_API_TOKEN == '' }}
+        run: echo "Cloudflare secrets not set — skipping Cloudflare deploy (this is expected until you finish CLOUDFLARE_SETUP.md)."
+
+      - uses: actions/checkout@v4
+        if: ${{ env.CF_API_TOKEN != '' }}
+      - uses: actions/setup-python@v5
+        if: ${{ env.CF_API_TOKEN != '' }}
+        with:
+          python-version: "3.11"
+      - name: Install Jupyter Book
+        if: ${{ env.CF_API_TOKEN != '' }}
+        run: pip install -r site/requirements.txt
+      - name: Compile theory handbooks (LaTeX -> PDF)
+        if: ${{ env.CF_API_TOKEN != '' }}
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD":/work -w /work --entrypoint bash \
+            ghcr.io/xu-cheng/texlive-full:latest -c '
+              set +e
+              for f in $(find . -name "*.tex" -not -path "./site/*"); do
+                d=$(dirname "$f"); b=$(basename "$f" .tex)
+                ( cd "$d" && latexmk -pdf -interaction=nonstopmode "$b.tex" ) || echo "WARN: $b failed"
+              done
+            '
+      - name: Build the book
+        if: ${{ env.CF_API_TOKEN != '' }}
+        run: jupyter-book build site/
+      - name: Collect compiled PDFs into the site
+        if: ${{ env.CF_API_TOKEN != '' }}
+        run: |
+          mkdir -p site/_build/html/pdfs
+          find . -name "*.pdf" -not -path "./site/*" -exec cp -v {} site/_build/html/pdfs/ \;
+      - name: Deploy to Cloudflare Pages
+        if: ${{ env.CF_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site/_build/html --project-name=mic-soc --branch=main

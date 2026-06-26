@@ -28,3 +28,7 @@ mentees (e.g. release weeks one at a time), then save the file and commit it.*
    shown above (use **Copy JSON**), and **Commit changes**.
 4. Wait ~2–3 min for the site to rebuild — done. (Click **Turn off preview** so you
    again see exactly what mentees see.)
+
+> **Want real login + auto mentor access?** See **`CLOUDFLARE_SETUP.md`**
+> (`/CLOUDFLARE_SETUP.html`) — it puts the site behind email login so you see
+> everything automatically and learners only see unlocked weeks.
