@@ -2,12 +2,12 @@
   "w0_setup": false,
   "w1_foundations": false,
   "w2_denoising_reconstruction": false,
-  "w3_ct_mri": false,
-  "w4_shape_segmentation": false,
-  "w5_cnns": false,
-  "w6_generative": false,
-  "w7_paper": false,
-  "w8_final_project": false,
-  "p1_denoising": false,
-  "p2_segmentation": false
+  "w3_ct_mri": true,
+  "w4_shape_segmentation": true,
+  "w5_cnns": true,
+  "w6_generative": true,
+  "w7_paper": true,
+  "w8_final_project": true,
+  "p1_denoising": true,
+  "p2_segmentation": true
 }
