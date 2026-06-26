@@ -1,0 +1,30 @@
+/* Lock styling for locked weeks/links and gated pages */
+.mic-locked-link { opacity: 0.5; }
+.mic-lock-badge { margin-right: 2px; }
+
+.mic-lock-gate {
+  text-align: center;
+  padding: 4rem 1rem 5rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.mic-lock-gate .mic-lock-emoji { font-size: 4.5rem; line-height: 1; }
+.mic-lock-gate h1 { margin: 0.6rem 0 0.4rem; border: none; }
+.mic-lock-gate p { color: var(--pst-color-text-muted, #666); font-size: 1.05rem; }
+
+/* Mentor admin panel */
+.mic-admin { margin: 1rem 0; }
+.mic-admin table { width: 100%; border-collapse: collapse; }
+.mic-admin th, .mic-admin td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e4e4e4; }
+.mic-admin tr.locked td { background: #fff4f4; }
+.mic-admin .pill { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; }
+.mic-admin .pill.on { background: #ffe0e0; color: #a10000; }
+.mic-admin .pill.off { background: #e3f6e3; color: #0a6b1e; }
+.mic-admin .btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.mic-admin button, .mic-admin a.btn {
+  cursor: pointer; border: 1px solid #c9c9c9; background: #f6f6f6;
+  border-radius: 6px; padding: 8px 12px; font-size: 0.92rem; text-decoration: none; color: #222;
+}
+.mic-admin button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.mic-admin textarea { width: 100%; min-height: 150px; font-family: monospace; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 6px; padding: 8px; }
+.mic-admin .hint { font-size: 0.9rem; color: #666; }

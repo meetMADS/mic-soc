@@ -19,6 +19,12 @@ mentor can see your progress. Work top to bottom.
 ::::{grid} 1 2 2 2
 :gutter: 3
 
+:::{grid-item-card} 🧰 Week 0 · Setup
+:link: weeks/w0_setup
+:link-type: doc
+Environment, install, and the prereq refreshers. Start here.
+:::
+
 :::{grid-item-card} 📐 Week 1 – 1.5 · Foundations
 :link: weeks/w1_foundations
 :link-type: doc
@@ -67,6 +73,12 @@ Read one paper deeply; reproduce one result.
 Data + method + evaluation + write-up + talk.
 :::
 
+:::{grid-item-card} 🧪 Projects & Labs
+:link: labs
+:link-type: doc
+The two implementation projects and every hands-on notebook in one place.
+:::
+
 ::::
 
 <p><b>Reference PDFs (auto-compiled on every push):</b>
@@ -84,8 +96,8 @@ checkpoint (see `HOW_TO_PUBLISH.md`).
 
 - **Mentees:** click a week, watch → read → do → submit the checkpoint form.
 - **Mentors:** each checkpoint is a Google Form; responses collect in a Google
-  Sheet that acts as your dashboard. (Future upgrade: real logins + a
-  week-unlocking dashboard via a free Supabase backend.)
+  Sheet that acts as your dashboard. To **release weeks gradually**, use the
+  [Mentor admin](admin.md) page to lock/unlock sections.
 
 > Want to publish or extend this site? See `HOW_TO_PUBLISH.md` in the `site/`
 > folder — it's a ~5-minute one-time GitHub setup, then it updates itself.

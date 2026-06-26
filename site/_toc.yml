@@ -2,6 +2,9 @@
 format: jb-book
 root: intro
 parts:
+  - caption: Get started
+    chapters:
+      - file: weeks/w0_setup
   - caption: Course weeks
     chapters:
       - file: weeks/w1_foundations
@@ -12,6 +15,14 @@ parts:
       - file: weeks/w6_generative
       - file: weeks/w7_paper
       - file: weeks/w8_final_project
+  - caption: Projects & labs
+    chapters:
+      - file: projects/p1_denoising
+      - file: projects/p2_segmentation
+      - file: labs
   - caption: Example notebook (rendered natively)
     chapters:
       - file: notebooks/demo_linear_algebra
+  - caption: For mentors
+    chapters:
+      - file: admin
