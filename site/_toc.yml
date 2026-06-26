@@ -8,8 +8,19 @@ parts:
   - caption: Course weeks
     chapters:
       - file: weeks/w1_foundations
+        sections:
+          - file: weeks/w1/watch
+          - file: weeks/w1/read
+          - file: weeks/w1/do
+          - file: weeks/w1/checkpoint
       - file: weeks/w2_denoising_reconstruction
       - file: weeks/w3_ct_mri
+        sections:
+          - file: weeks/w3/ct_video
+          - file: weeks/w3/mri_video
+          - file: weeks/w3/read
+          - file: weeks/w3/lab
+          - file: weeks/w3/checkpoint
       - file: weeks/w4_shape_segmentation
       - file: weeks/w5_cnns
       - file: weeks/w6_generative

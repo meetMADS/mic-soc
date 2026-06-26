@@ -46,6 +46,9 @@ jobs:
                 ( cd "$d" && latexmk -pdf -interaction=nonstopmode "$b.tex" ) || echo "WARN: $b failed"
               done
             '
+      - name: Apply locks (build-time gating)
+        if: ${{ env.CF_API_TOKEN != '' }}
+        run: python tools/apply_locks.py
       - name: Build the book
         if: ${{ env.CF_API_TOKEN != '' }}
         run: jupyter-book build site/
@@ -53,7 +56,13 @@ jobs:
         if: ${{ env.CF_API_TOKEN != '' }}
         run: |
           mkdir -p site/_build/html/pdfs
-          find . -name "*.pdf" -not -path "./site/*" -exec cp -v {} site/_build/html/pdfs/ \;
+          for f in $(find . -name "*.pdf" -not -path "./site/*"); do
+            b=$(basename "$f")
+            if [ -f locked_pdfs.txt ] && grep -qxF "$b" locked_pdfs.txt; then
+              echo "withholding locked PDF: $b"; continue
+            fi
+            cp -v "$f" site/_build/html/pdfs/
+          done
       - name: Deploy to Cloudflare Pages
         if: ${{ env.CF_API_TOKEN != '' }}
         uses: cloudflare/wrangler-action@v3

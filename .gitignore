@@ -6,6 +6,7 @@
 site/_build/
 **/__pycache__/
 *.pyc
+locked_pdfs.txt
 
 # ---- Bundled CS-736 slide decks: attribution-only, DO NOT redistribute. ----
 # The website does not need them; the theory chapters cite them with attribution.
