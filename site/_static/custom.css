@@ -1,8 +1,16 @@
-/* Use more of the screen width — wider content column. */
-.bd-page-width { max-width: 1600px !important; }
-.bd-main .bd-content { max-width: 100% !important; }
-.bd-article-container { max-width: 100% !important; }
+/* ── Use the full screen width ───────────────────────────────────────────── */
+/* The pydata/book theme caps the whole layout (nav + content + TOC) via
+   .bd-page-width. Remove that cap and the inner article caps so the content
+   spans the viewport instead of leaving big side margins. */
+.bd-page-width,
+.bd-container__inner.bd-page-width { max-width: 100% !important; }
+
+.bd-main .bd-content,
+.bd-article-container,
 .bd-article { max-width: 100% !important; }
 
-/* Let embedded PDFs and iframes breathe in the wider column. */
+/* A little breathing room at the edges so text isn't flush to the window. */
+.bd-article { padding-left: 1.2rem; padding-right: 1.2rem; }
+
+/* Let embedded PDFs / videos use the wider column. */
 .bd-article iframe { max-width: 100%; }
