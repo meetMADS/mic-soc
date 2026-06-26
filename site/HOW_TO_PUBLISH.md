@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # How to publish this course site (≈5 minutes, one time)
 
 The site is a **Jupyter Book** in `site/`, published **free** to **GitHub Pages**

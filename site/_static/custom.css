@@ -1,0 +1,8 @@
+/* Use more of the screen width — wider content column. */
+.bd-page-width { max-width: 1600px !important; }
+.bd-main .bd-content { max-width: 100% !important; }
+.bd-article-container { max-width: 100% !important; }
+.bd-article { max-width: 100% !important; }
+
+/* Let embedded PDFs and iframes breathe in the wider column. */
+.bd-article iframe { max-width: 100%; }

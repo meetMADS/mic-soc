@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # Mentor admin — lock / unlock sections
 
 *This page is a tool for **mentors**. Tick the sections you want to **hide** from

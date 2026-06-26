@@ -19,15 +19,15 @@ figure or number from the paper; run a baseline (classical or simple CNN) on the
 actually work?"*
 ```
 
-## ▶ Start here
+## ▶ Watch
 
-```{admonition} How to read a paper — two short guides
-:class: tip
-There isn't one canonical must-watch video for this, so use two excellent written
-guides instead (both linked again under **Read** below): Andrew Ng's **three-pass
-method** and S. Keshav's classic one-page *How to Read a Paper*. Skim them before
-you open your paper.
-```
+**[▶ How to read a research paper — Andrew Ng (Stanford CS230) ↗](https://www.youtube.com/watch?v=733m6qBH-jI)**
+*(opens on YouTube — this one disables third-party embedding so it can't play inline,
+but it's live and worth the ~15 minutes.)*
+
+Prefer reading? S. Keshav's classic one-pager
+[*How to Read a Paper*](https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf)
+pairs perfectly with the three-pass method below.
 
 ## 📖 Read (the method)
 

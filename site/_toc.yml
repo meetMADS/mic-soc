@@ -24,6 +24,3 @@ parts:
   - caption: Example notebook (rendered natively)
     chapters:
       - file: notebooks/demo_linear_algebra
-  - caption: For mentors
-    chapters:
-      - file: admin
