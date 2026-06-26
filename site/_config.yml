@@ -35,6 +35,8 @@ sphinx:
     html_static_path: ["_static"]
     html_css_files:
       - locks.css
+      - progress.css
     html_js_files:
       - locks.js
       - admin.js
+      - progress.js

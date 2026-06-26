@@ -14,6 +14,10 @@ PDF) → **Do** the hands-on notebook → **Checkpoint**: submit a short form so
 mentor can see your progress. Work top to bottom.
 ```
 
+## Track your progress
+
+<div id="mic-progress">Loading your progress…</div>
+
 ## Learning roadmap
 
 ::::{grid} 1 2 2 2
@@ -71,6 +75,12 @@ Read one paper deeply; reproduce one result.
 :link: weeks/w8_final_project
 :link-type: doc
 Data + method + evaluation + write-up + talk.
+:::
+
+:::{grid-item-card} 📦 Assignments & Data
+:link: assignments
+:link-type: doc
+The four assignments and where to download the project data.
 :::
 
 :::{grid-item-card} 🧪 Projects & Labs

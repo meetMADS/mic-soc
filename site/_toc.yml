@@ -15,8 +15,9 @@ parts:
       - file: weeks/w6_generative
       - file: weeks/w7_paper
       - file: weeks/w8_final_project
-  - caption: Projects & labs
+  - caption: Assignments, projects & labs
     chapters:
+      - file: assignments
       - file: projects/p1_denoising
       - file: projects/p2_segmentation
       - file: labs

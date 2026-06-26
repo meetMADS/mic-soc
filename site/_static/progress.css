@@ -1,0 +1,16 @@
+/* Learner progress tracker (saved in the browser via localStorage) */
+.mic-prog-head { display:flex; justify-content:space-between; align-items:baseline; margin-top:.4rem; }
+.mic-prog-num { color:#555; font-variant-numeric:tabular-nums; }
+.mic-prog-bar { height:14px; background:#e9e9e9; border-radius:8px; overflow:hidden; margin:.4rem 0 .8rem; }
+.mic-prog-fill { height:100%; width:0; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width .3s ease; }
+.mic-prog-list { list-style:none; padding:0; margin:.3rem 0; display:grid; grid-template-columns:1fr 1fr; gap:2px 18px; }
+.mic-prog-list li { margin:0; }
+.mic-prog-list label { cursor:pointer; font-size:.95rem; }
+.mic-prog-reset { cursor:pointer; border:1px solid #ccc; background:#f6f6f6; border-radius:6px; padding:6px 10px; font-size:.85rem; }
+.mic-prog-hint { font-size:.85rem; color:#777; margin-top:.4rem; }
+
+.mic-mark-wrap { margin:.3rem 0 1.2rem; }
+.mic-mark-btn { cursor:pointer; border:1px solid #2563eb; background:#2563eb; color:#fff; border-radius:8px; padding:8px 14px; font-size:.95rem; }
+.mic-mark-btn:hover { filter:brightness(1.05); }
+.mic-mark-btn.done { background:#16a34a; border-color:#16a34a; }
+@media (max-width:600px){ .mic-prog-list{ grid-template-columns:1fr; } }
