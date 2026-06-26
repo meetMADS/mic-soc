@@ -72,6 +72,18 @@ Gaussian Mixture Models & EM — StatQuest:
 > `Slides_MIC_Registration` (42) and `Slides_MIC_KernelMethods` (35) — from the
 > [course slide Drive folder](https://drive.google.com/drive/folders/1_yKltLUl4Zzi2coX6aGSsHBDPAwPPgZd?usp=sharing).
 
+## 🔬 Assignment a4 (provided) — run & observe
+
+```{admonition} Shape analysis + kernel PCA *are* the instructor-provided a4 assignment
+:class: note
+a4 is already coded — **run it and observe** after the theory above. Two notebooks
+cover it: shape analysis (Procrustes → GPA → PCA modes) and the kernel-PCA toy
+(linear PCA fails on two moons; RBF kernel PCA separates them).
+
+[Shape ▶ Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_4/notebooks/01_shape_analysis_procrustes_pca.ipynb)
+ · [Kernel PCA ▶ Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_4/notebooks/03_kernel_pca_toy.ipynb)
+```
+
 ## 🧪 Do (hands-on)
 
 Three notebooks (NumPy + Matplotlib only):

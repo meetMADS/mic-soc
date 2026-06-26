@@ -18,8 +18,9 @@ Datasets are too large/varied to ship inside the website, so they're provided as
 **downloadable bundle**. Grab the data, unzip it next to your notebook, and load the
 `.mat` files with `scipy.io.loadmat` (inspect `.keys()` to find the arrays).
 
-**Download:** <!-- MENTOR: replace the line below with your real link -->
-**[ data bundle link — set by your mentor ]**
+**Download:** **[⬇ Course Drive folder](https://drive.google.com/drive/folders/1_yKltLUl4Zzi2coX6aGSsHBDPAwPPgZd?usp=sharing)** — your mentor uploads
+`a1_data.zip` and `a3_data.zip` here (the same Drive as the slides). Unzip the files
+next to your notebook.
 ```
 
 What each project needs:
@@ -49,9 +50,10 @@ implement from scratch:
 
 ```{admonition} Pick one delivery method
 :class: tip
-- **Google Drive (recommended, like the slides):** put `a1_data.zip` and
-  `a3_data.zip` in a Drive folder, set it to *anyone with the link*, and paste that
-  link into the **Download** box above (edit `site/assignments.md`).
+- **Google Drive (current setup, like the slides):** upload `a1_data.zip` and
+  `a3_data.zip` to the [course Drive folder](https://drive.google.com/drive/folders/1_yKltLUl4Zzi2coX6aGSsHBDPAwPPgZd?usp=sharing)
+  (set to *anyone with the link*). To use a different folder, edit the Download link
+  in `site/assignments.md`.
 - **GitHub Release:** create a release on the repo and attach the zips as assets;
   link those URLs instead — direct downloads, repo stays small.
 - **Commit into the site:** only if the data may be shared publicly. Drop zips in

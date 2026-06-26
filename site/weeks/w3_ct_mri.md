@@ -54,6 +54,19 @@ MRI from picture to proton — Allen Q. Ye:
 > On a few heavy-equation slides the copy-paste text is garbled; trust the slide
 > images and the PDF above for the equations.
 
+## 🔬 Assignment a2 (provided) — run & observe
+
+```{admonition} The CT half of this week *is* the instructor-provided a2 assignment
+:class: note
+You don't implement a2 from scratch — it's already coded, so **run it and observe**.
+The notebook builds the **Radon transform** (sinogram), reconstructs with **plain vs
+filtered back-projection**, and shows how dropping view angles creates streak
+artefacts. Read the theory above first, then run and study each step.
+
+[▶ Run a2 in Colab](https://colab.research.google.com/github/meetMADS/mic-soc/blob/main/week_3/notebooks/01_ct_radon_fbp_and_mri_kspace.ipynb)
+ · [view on GitHub](https://github.com/meetMADS/mic-soc/blob/main/week_3/notebooks/01_ct_radon_fbp_and_mri_kspace.ipynb)
+```
+
 ## 🧪 Do (hands-on)
 
 **`01_ct_radon_fbp_and_mri_kspace.ipynb`** (NumPy + Matplotlib) — build the Radon
