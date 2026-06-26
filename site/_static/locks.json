@@ -9,5 +9,5 @@
   "w7_paper": false,
   "w8_final_project": false,
   "p1_denoising": false,
-  "p2_segmentation": false
+  "p2_segmentation": true
 }
