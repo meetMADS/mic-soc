@@ -86,6 +86,27 @@ def title_for(path):
     return os.path.basename(path).rsplit(".", 1)[0].replace("_", " ").title()
 
 
+def strip_labs(locks):
+    """Remove <!-- LOCKSEC:key --> ... <!-- /LOCKSEC --> blocks for locked weeks
+    from the Labs hub page, so it never links to locked notebooks."""
+    import re
+    labs = os.path.join(SITE, "labs.md")
+    if not os.path.exists(labs):
+        return
+    with open(labs, "r", encoding="utf-8") as fh:
+        text = fh.read()
+
+    def repl(m):
+        key = m.group(1).strip()
+        return "" if locks.get(key) else m.group(0)
+
+    new = re.sub(r"<!-- LOCKSEC:(\S+) -->.*?<!-- /LOCKSEC -->", repl, text, flags=re.S)
+    if new != text:
+        with open(labs, "w", encoding="utf-8") as fh:
+            fh.write(new)
+        print("labs.md: stripped locked sections")
+
+
 def main():
     if not os.path.exists(LOCKS):
         print("no locks.json — nothing to gate")
@@ -115,6 +136,8 @@ def main():
 
     with open(os.path.join(ROOT, "locked_pdfs.txt"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(sorted(set(locked_pdfs))) + ("\n" if locked_pdfs else ""))
+
+    strip_labs(locks)
 
     print(f"done: {n} page(s) stubbed, {len(set(locked_pdfs))} pdf(s) withheld")
 
